@@ -1,0 +1,21 @@
+services:
+  dcs-server:
+    image: aterfax/dcs-world-dedicated-server:latest
+    container_name: dcs-fow-server
+    environment:
+      PUID: "${PUID:?Set PUID in .env}"
+      PGID: "${PGID:?Set PGID in .env}"
+      TZ: Europe/Stockholm
+      CUSTOM_USER: stefan
+      PASSWORD: "${WEBTOP_PASSWORD:?Set WEBTOP_PASSWORD in .env}"
+      DCSAUTOINSTALL: "1"
+      DCSMODULES: CAUCASUS_terrain
+      FORCEREINSTALL: "0"
+      AUTOSTART: "1"
+    ports:
+      - "3001:3001/tcp"
+      - "10308:10308/tcp"
+      - "10308:10308/udp"
+    volumes:
+      - /data/dcs-fow/config:/config
+    restart: unless-stopped

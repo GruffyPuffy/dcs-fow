@@ -1,0 +1,42 @@
+# Local configuration and credentials (keep *.example templates)
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.kdbx
+*.vault
+id_rsa
+id_ed25519
+serverSettings.lua
+
+# DCS/Wine runtime state, logs, and downloaded server files
+.wine/
+Saved Games/
+deploy/dcs/config/
+deploy/dcs/server_files/
+deploy/dcs/saved_games/
+data/
+logs/
+*.log
+*.log.*
+
+# Python and local tooling
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor and OS files
+.idea/
+.vscode/
+*~
+.DS_Store
+
+# missions/fow.miz is deliberately tracked as a deployable project artifact.
