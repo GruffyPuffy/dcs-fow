@@ -25,6 +25,7 @@ EOF
 }
 
 compose() {
+  prepare_env
   docker compose --project-directory "$compose_dir" -f "$compose_dir/docker-compose.yml" "$@"
 }
 
@@ -99,7 +100,6 @@ PY
 prepare() {
   require_data_disk
   require_docker
-  prepare_env
   mkdir -p "$data_root/config"
   if [[ ! -w "$data_root/config" ]]; then
     echo "$data_root/config is not writable by $(id -un)." >&2
