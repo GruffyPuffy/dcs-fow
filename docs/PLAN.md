@@ -1,6 +1,6 @@
 # Project plan
 
-Status: draft for discussion, 2026-09-19.
+Status: server baseline proven; live bridge is next. Updated 2026-09-19.
 
 ## Intended experience
 
@@ -11,7 +11,7 @@ A DCS dedicated server runs a persistent scenario on an Ubuntu 24.04 machine. Re
 ```text
                     Ubuntu 24.04 host
   +------------------------------------------------------+
-  | DCS dedicated server via Wine (packaging TBD)        |
+  | DCS dedicated server via Aterfax Docker/Wine          |
   |   mission Lua / bridge <----> Python orchestrator     |
   |                                | state & rules         |
   |                                +--> Red local LLM      |
@@ -35,28 +35,27 @@ The proposed loop is: collect authoritative mission state; maintain side-specifi
 
 | Stage | Work | Evidence required before expanding |
 | --- | --- | --- |
-| 0. Align | Agree on first map, available hardware, client access, acceptable operational complexity and MVP behavior. Review ADRs. | Agreed scope and test setup. |
-| 1. Host feasibility | Run [Experiment 0001](experiments/0001-linux-server-client-join.md): a minimal Caucasus mission with one F/A-18C client slot on Ubuntu, joined from Windows. | Versioned steps, server logs, a completed client connection, CPU/RAM/disk observations, restart behavior. |
+| 0. Align | Choose the first map, host and client setup. | **Done for the server trial:** Ubuntu 24.04, Caucasus, F/A-18C Windows client. Broader FoW scope remains open. |
+| 1. Host feasibility | Run [Experiment 0001](experiments/0001-linux-server-client-join.md): host one repo-owned Caucasus mission and join from Windows. | **Working:** server install, auto start, LAN join, air and ground spawn. Resource measurements and reboot test remain useful operational follow-up. |
 | 2. Live bridge | Use one mission and one group to export a small state record and accept a single safe order. Evaluate DCS mission Lua versus a server hook and transport without assuming mission file/socket access. | A command changes the group as intended; disconnect/restart/invalid-order cases are recorded. |
 | 3. Deterministic battle | Add fixed zones, objectives, two sides, basic detection filtering, action validation and scripted commanders. | Both sides act independently without an LLM; hidden units remain absent from enemy views. |
 | 4. Local LLM trial | Add separate Red/Blue briefs and structured output behind the same validator. Replay recorded states and compare decisions. | Valid order rate, inference latency, strategic continuity and failure behavior measured on the actual host. |
 | 5. Living mission | Add player interaction, broader orders, reinforcements and persistence only where evidence supports them. | An unattended session evolves coherently; a human can join and affect later decisions. |
 | 6. Packaging | Write Ubuntu 24.04 installer/operations scripts from the proven setup. | Repeatable installation on a clean environment with documented upgrades and backups. |
 
-Each stage requires agreement on the actual test before implementation. We can revise the sequence as evidence arrives.
+Agree on each new experiment before implementing it. The first server trial is complete enough to begin designing Stage 2; the later stages remain proposals.
 
-## Questions to settle first
+## Open design questions
 
-1. What are this host's CPU, RAM, GPU/VRAM, free disk and network conditions? Is a DCS client available to join test missions?
-2. Which map and DCS modules are available, and should the first mission use only free content?
-3. Is the first playable target a continuous single mission that can reset, or must war state survive server/mission restarts?
-4. Should the Blue commander issue suggestions to the player, or treat the player as completely autonomous at first?
-5. Can the initial experiment use a private LAN only? What DCS account/server administration constraints apply?
+1. What is the smallest state record and one safe AI order for the live bridge test?
+2. Should bridge transport use a server hook, mission Lua with a narrow socket, or another supported path?
+3. Must war state survive mission/server restarts in the first playable version?
+4. Should the Blue commander issue suggestions to the player or treat the player as autonomous at first?
 
 ## Known research limits
 
-- Eagle Dynamics supplies a [dedicated server installer](https://www.digitalcombatsimulator.com/en/downloads/world/server/); Linux operation currently relies on community Wine approaches such as [Aterfax's container](https://github.com/Aterfax/DCS-World-Dedicated-Server-Docker) or [ActiumDev's direct Wine setup](https://github.com/ActiumDev/dcs-server-wine). These are candidates, not a verified recommendation for this machine.
+- The [Aterfax container](https://github.com/Aterfax/DCS-World-Dedicated-Server-Docker) works for this host's basic server and client trial. DCS updates and later Lua integration still need testing.
 - The [DCS controller API](https://www.digitalcombatsimulator.com/en/support/faq/1267/) supports AI tasks, but task behavior varies by unit type and situation. A broad phrase such as “hold the river” still needs explicit translation and live testing.
 - The [mission scripting environment](https://www.digitalcombatsimulator.com/en/support/faq/1253/) is isolated. File and socket examples in the pasted discussion should not be treated as working bridge code. The bridge mechanism is an early experiment.
-- [pydcs](https://github.com/pydcs/dcs) creates and edits mission files. It may help with initial or later generated `.miz` files, but it is not the live command channel.
+- [pydcs](https://github.com/pydcs/dcs) generated the repo's `fow.miz`. It is not the live command channel. Its default neutral airfield ownership blocked ground slots until Batumi was set to Blue.
 - The pasted model latency, memory and hardware estimates are unverified for this machine. Measure them before choosing model and deployment method.

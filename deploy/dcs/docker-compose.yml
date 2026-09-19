@@ -6,7 +6,7 @@ services:
       PUID: "${PUID:?Set PUID in .env}"
       PGID: "${PGID:?Set PGID in .env}"
       TZ: Europe/Stockholm
-      CUSTOM_USER: stefan
+      CUSTOM_USER: "${WEBTOP_USER:?Set WEBTOP_USER in .env}"
       PASSWORD: "${WEBTOP_PASSWORD:?Set WEBTOP_PASSWORD in .env}"
       DCSAUTOINSTALL: "1"
       DCSMODULES: CAUCASUS_terrain

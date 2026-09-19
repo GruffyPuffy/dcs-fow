@@ -47,7 +47,7 @@ require_data_disk() {
 }
 
 prepare_env() {
-  python3 - "$env_file" "$(id -u)" "$(id -g)" <<'PY'
+  python3 - "$env_file" "$(id -u)" "$(id -g)" "$(id -un)" <<'PY'
 import os
 import secrets
 import sys
@@ -55,7 +55,7 @@ import tempfile
 from pathlib import Path
 
 path = Path(sys.argv[1])
-uid, gid = sys.argv[2:]
+uid, gid, username = sys.argv[2:]
 old = path.read_text() if path.exists() else ""
 lines = old.splitlines()
 values = {line.split("=", 1)[0]: line.split("=", 1)[1] for line in lines if "=" in line}
@@ -64,7 +64,7 @@ generated = not password or password == "REPLACE_WITH_A_LONG_UNIQUE_PASSWORD"
 if generated:
     password = secrets.token_urlsafe(24)
 
-replacements = {"PUID": uid, "PGID": gid, "WEBTOP_PASSWORD": password}
+replacements = {"PUID": uid, "PGID": gid, "WEBTOP_USER": username, "WEBTOP_PASSWORD": password}
 seen = set()
 updated = []
 for line in lines:
