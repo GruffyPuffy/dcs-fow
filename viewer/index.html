@@ -208,6 +208,7 @@
       sideSelect.addEventListener('change', () => { firstFit = true; selectedGroup = null; selectedUnit = null; targetPoint = null; updateSpawnOptions(); updateRtbOptions(); refresh(); });
       const categoryName = category => ({0:'aircraft',1:'helicopter',2:'ground',3:'ship',4:'train'})[category] || 'group';
       function symbolText(group, unit) {
+        if ((group.category === 0 || group.category === 1) && unit.callsign) return unit.callsign;
         return unit.type || categoryName(group.category);
       }
       const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -431,6 +432,7 @@
             const icon = L.divIcon({className: '', html: `<div class="symbol ${side}" style="width:${width}px" title="${escapeHtml(label)}"><span>${escapeHtml(label)}</span></div>`, iconSize:[width,30], iconAnchor:[width/2,15]});
             const details = [aliases[group.name] || group.name, `DCS group: ${group.name}`, `${side} ${categoryName(group.category)} · ${unit.type}`];
             if (group.category === 0 || group.category === 1) {
+              if (unit.callsign) details.push(`Callsign: ${unit.callsign}`);
               details.push(`Altitude: ${Math.round(metresToFeet(unit.y)).toLocaleString()} ft MSL`);
               if (Number.isFinite(unit.speed_mps)) details.push(`Ground speed: ${Math.round(metresPerSecondToKnots(unit.speed_mps))} kt`);
               if (Number.isFinite(unit.fuel)) details.push(`Fuel: ${Math.round(unit.fuel * 100)}%`);

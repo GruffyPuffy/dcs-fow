@@ -23,6 +23,7 @@ UNIT_CATALOG = CATALOG.with_name("unit_catalog.json")
 AIR_CATALOG = CATALOG.with_name("air_trial.json")
 AIR_TEMPLATES = CATALOG.with_name("air_templates.json")
 AIRBASE_CATALOG = CATALOG.with_name("airbase_catalog.json")
+SCENARIO_MANIFEST = CATALOG.with_name("scenario_manifest.json")
 
 
 def load_catalog() -> dict:
@@ -31,6 +32,18 @@ def load_catalog() -> dict:
     for side in ("blue", "red"):
         catalog[side].update(units[side])
     return catalog
+
+
+def scenario_aliases() -> dict:
+    if not SCENARIO_MANIFEST.exists():
+        return {}
+    scenario = json.loads(SCENARIO_MANIFEST.read_text()).get("scenario", {})
+    configured = scenario.get("client_slots", []) + scenario.get("initial_groups", []) \
+        + scenario.get("initial_flights", [])
+    return {
+        item["name"]: item["display_name"]
+        for item in configured if item.get("display_name")
+    }
 
 
 def range_rings(snapshot: dict | None, catalog: dict) -> dict:
@@ -140,6 +153,7 @@ def main() -> None:
                 with lock:
                     payload = state.copy()
                 payload.update(store.dashboard())
+                payload["aliases"] = {**scenario_aliases(), **payload["aliases"]}
                 payload["range_rings"] = range_rings(payload["snapshot"], load_catalog())
                 payload = side_view(payload, sides[0])
                 body = json.dumps(payload, separators=(",", ":")).encode("utf-8")

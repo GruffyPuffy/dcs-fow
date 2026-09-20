@@ -22,6 +22,45 @@ def aircraft_type(name: str):
     return aircraft
 
 
+def set_flight_callsign(group: dcs.unitgroup.FlyingGroup, country,
+                        configured: dict) -> None:
+    callsign = configured.get("callsign")
+    if callsign is None:
+        return
+    if "number" in callsign:
+        number = callsign["number"]
+        if not isinstance(number, int) or not 1 <= number <= 999:
+            raise ValueError("Numeric callsign must be 1-999")
+        if number + len(group.units) - 1 > 999:
+            raise ValueError("Numeric callsign exceeds 999 for flight members")
+        for member, unit in enumerate(group.units):
+            unit.callsign = number + member
+        return
+    if not isinstance(country.callsign, dict):
+        raise ValueError(f"{country.name} uses numeric callsigns")
+    category = group.units[0].unit_type.category
+    if category == "Interceptor":
+        category = "Air"
+    available = country.callsign.get(category, [])
+    name = callsign["name"]
+    flight = callsign.get("flight", 1)
+    if name not in available:
+        raise ValueError(
+            f"Callsign {name!r} is not available for {country.name} {category}"
+        )
+    if not isinstance(flight, int) or not 1 <= flight <= 999:
+        raise ValueError("Callsign flight number must be 1-999")
+    callsign_id = available.index(name) + 1
+    for member, unit in enumerate(group.units, 1):
+        unit.callsign = None
+        unit.callsign_dict = {
+            1: callsign_id,
+            2: flight,
+            3: member,
+            "name": f"{name}{flight}{member}",
+        }
+
+
 def offset_point(mission: dcs.Mission, airport, offset: list[float]) -> dcs.Point:
     return dcs.Point(
         airport.position.x + offset[0],
@@ -123,6 +162,7 @@ def add_initial_flights(mission: dcs.Mission, scenario: dict,
         else:
             raise ValueError(f"Unknown initial flight role: {role}")
         group.set_skill(dcs.unit.Skill.High)
+        set_flight_callsign(group, country, configured)
 
 
 def lua_literal(value):

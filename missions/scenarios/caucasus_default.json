@@ -41,6 +41,7 @@
   "initial_groups": [
     {
       "name": "FoW Blue Batumi Air Defense",
+      "display_name": "Batumi Air Defense",
       "side": "blue",
       "role": "base_air_defense",
       "package": "sam",
@@ -49,6 +50,7 @@
     },
     {
       "name": "FoW Blue Batumi Security",
+      "display_name": "Batumi Base Security",
       "side": "blue",
       "role": "base_security",
       "package": "platoon",
@@ -57,6 +59,7 @@
     },
     {
       "name": "FoW Blue Batumi Logistics",
+      "display_name": "Batumi Logistics",
       "side": "blue",
       "role": "logistics",
       "package": "vehicle",
@@ -65,6 +68,7 @@
     },
     {
       "name": "FoW Red Gudauta Air Defense",
+      "display_name": "Gudauta Air Defense",
       "side": "red",
       "role": "base_air_defense",
       "package": "sam",
@@ -73,6 +77,7 @@
     },
     {
       "name": "FoW Red Gudauta Security",
+      "display_name": "Gudauta Base Security",
       "side": "red",
       "role": "base_security",
       "package": "platoon",
@@ -81,6 +86,7 @@
     },
     {
       "name": "FoW Red Gudauta Logistics",
+      "display_name": "Gudauta Logistics",
       "side": "red",
       "role": "logistics",
       "package": "vehicle",
@@ -91,6 +97,7 @@
   "initial_flights": [
     {
       "name": "FoW Blue Overlord",
+      "display_name": "Overlord AWACS",
       "side": "blue",
       "role": "awacs",
       "aircraft": "E_3A",
@@ -100,10 +107,12 @@
       "heading_deg": 0,
       "altitude_m": 9000,
       "speed_kph": 650,
-      "frequency_mhz": 251.0
+      "frequency_mhz": 251.0,
+      "callsign": {"name": "Overlord", "flight": 1}
     },
     {
       "name": "FoW Blue Texaco",
+      "display_name": "Texaco Tanker",
       "side": "blue",
       "role": "tanker",
       "aircraft": "KC135MPRS",
@@ -114,10 +123,12 @@
       "altitude_m": 6500,
       "speed_kph": 620,
       "frequency_mhz": 253.0,
-      "tacan": "31Y"
+      "tacan": "31Y",
+      "callsign": {"name": "Texaco", "flight": 1}
     },
     {
       "name": "FoW Blue Batumi CAP",
+      "display_name": "Batumi CAP",
       "side": "blue",
       "role": "cap",
       "aircraft": "FA_18C_hornet",
@@ -126,10 +137,12 @@
       "altitude_m": 7500,
       "speed_kph": 850,
       "engage_range_m": 60000,
-      "group_size": 2
+      "group_size": 2,
+      "callsign": {"name": "Springfield", "flight": 1}
     },
     {
       "name": "FoW Red Mainstay",
+      "display_name": "Mainstay AWACS",
       "side": "red",
       "role": "awacs",
       "aircraft": "A_50",
@@ -139,10 +152,12 @@
       "heading_deg": 180,
       "altitude_m": 9000,
       "speed_kph": 650,
-      "frequency_mhz": 252.0
+      "frequency_mhz": 252.0,
+      "callsign": {"number": 101}
     },
     {
       "name": "FoW Red Shell",
+      "display_name": "Shell Tanker",
       "side": "red",
       "role": "tanker",
       "aircraft": "IL_78M",
@@ -153,10 +168,12 @@
       "altitude_m": 6500,
       "speed_kph": 620,
       "frequency_mhz": 254.0,
-      "tacan": "32Y"
+      "tacan": "32Y",
+      "callsign": {"number": 201}
     },
     {
       "name": "FoW Red Gudauta CAP",
+      "display_name": "Gudauta CAP",
       "side": "red",
       "role": "cap",
       "aircraft": "MiG_29S",
@@ -165,7 +182,8 @@
       "altitude_m": 7500,
       "speed_kph": 850,
       "engage_range_m": 60000,
-      "group_size": 2
+      "group_size": 2,
+      "callsign": {"number": 301}
     }
   ],
   "boundaries": [],

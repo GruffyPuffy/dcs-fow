@@ -1,7 +1,39 @@
 # DCS Fog of War
 
-Prototype for a persistent DCS mission in which two local AI commanders eventually give operational orders to Red and Blue forces. Each commander should see its own forces and only the enemy information its side has earned. A player can join as a pilot.
+DCS Fog of War is a prototype for running a persistent Caucasus scenario with external Red and Blue commanders. DCS owns the simulation; a Python service observes mission state, validates commander orders, and translates them into DCS tasks through a small generic Lua bridge.
 
-**Current state:** A DCS dedicated server runs in the Aterfax Wine container on Ubuntu 24.04. A Windows client joined and spawned in the Caucasus `fow.miz` mission. The JSON bridge and manual commander server report live status, retain orders and movement tracks, and have spawned a truck and a Hawk SAM group in DCS. Descriptive/custom names, editable viewer aliases, ground ROE orders, range overlays, and a DCS-derived single-unit menu are staged for the next live test. Sensor-derived fog of war, AI commanders and LLM integration remain future work.
+## Current state
 
-See the [plan](docs/PLAN.md), [ADRs](docs/adr/README.md), [server setup and mission build instructions](deploy/dcs/README.md), [JSON bridge guide](docs/BRIDGE.md), [manual commander instructions](docs/VIEWER.md), [command design](docs/MANUAL_COMMANDER.md), and [air-command trial](docs/AIR_COMMANDS.md).
+- A scenario JSON is compiled into `fow.miz` with pydcs.
+- The default scenario includes owned airbases, player Hornet slots, base defenses, logistics, AWACS, tankers, and CAP flights.
+- Aircraft use native DCS callsigns, routes, roles, frequencies, and tanker TACAN configuration.
+- The live bridge reports groups, positions, speed, altitude, fuel, and callsigns.
+- The local commander viewer shows coalition-filtered state, observed tracks, orders, aliases, and reference weapon ranges.
+- Manual commanders can move or hold ground forces, set ROE, spawn ground or air units, redirect aircraft, assign Patrol/CAP missions, and order aircraft to return to base.
+- SQLite retains observations and orders for the current mission run.
+
+Sensor-derived enemy contacts, authenticated commander roles, campaign persistence, logistics simulation, and automatic fuel/recovery decisions are not implemented yet.
+
+## Run
+
+Build and deploy the mission and bridge:
+
+```bash
+./scripts/build-mission.sh
+./scripts/dcs.sh missions
+./scripts/dcs.sh bridge
+```
+
+Restart DCS when the hook changes, load `fow.miz`, then start the local service:
+
+```bash
+./scripts/fow-server.py
+```
+
+Open `http://127.0.0.1:8765/`.
+
+## Direction
+
+The manual commander is the test harness for a later LLM-based command layer. The plan is to give separate Red and Blue commanders only their side-filtered intelligence and a bounded catalog of structured orders. Deterministic Python code will continue to validate decisions and own all DCS task construction; the LLMs will choose operational intent, not generate Lua or directly control the simulator.
+
+See the [plan](docs/PLAN.md), [server setup](deploy/dcs/README.md), [bridge guide](docs/BRIDGE.md), [viewer guide](docs/VIEWER.md), [command design](docs/MANUAL_COMMANDER.md), and [ADRs](docs/adr/README.md).
