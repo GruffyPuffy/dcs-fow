@@ -4,17 +4,18 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 container=dcs-fow-server
 generator="$repo_dir/missions/build_mission.py"
-mission_lua="$repo_dir/missions/fow_bridge.lua"
+mission_lua="$repo_dir/missions/fow_bridge_generic.lua"
 catalog="$repo_dir/missions/spawn_catalog.json"
 unit_catalog="$repo_dir/missions/unit_catalog.json"
 air_catalog="$repo_dir/missions/air_trial.json"
 output="$repo_dir/missions/fow.miz"
 container_venv=/tmp/dcs-fow-pydcs-venv
 container_generator=/tmp/dcs-fow-build-mission.py
-container_lua=/tmp/fow_bridge.lua
+container_lua=/tmp/fow_bridge_generic.lua
 container_catalog=/tmp/spawn_catalog.json
 container_unit_catalog=/tmp/unit_catalog.json
 container_air_catalog=/tmp/air_trial.json
+container_air_templates=/tmp/air_templates.json
 container_output=/tmp/dcs-fow-built.miz
 
 if [[ "$#" -ne 0 ]]; then
@@ -73,6 +74,7 @@ docker exec "$container" "$container_venv/bin/python" "$container_generator" "$c
 temporary="$(mktemp "$repo_dir/missions/.fow-build.XXXXXX.miz")"
 trap 'rm -f "$temporary"' EXIT
 docker cp "$container:$container_output" "$temporary"
+docker cp "$container:$container_air_templates" "$repo_dir/missions/air_templates.json"
 
 python3 - "$temporary" <<'PY'
 import re

@@ -176,9 +176,10 @@ def main() -> None:
     mission.init_script = ("FoWAirCatalog = " + lua_literal(air_catalog) + "\n" +
                            "FoWAirbaseCatalog = " + lua_literal(airbase_catalog) + "\n" +
                            "FoWSpawnCatalog = " + lua_literal(catalog) + "\n" +
-                           Path(__file__).with_name("fow_bridge.lua").read_text())
+                           Path(__file__).with_name("fow_bridge_generic.lua").read_text())
 
     output.parent.mkdir(parents=True, exist_ok=True)
+    output.with_name("air_templates.json").write_text(json.dumps(air_catalog["presets"], indent=2))
     mission.save(str(output))
     print(output)
 

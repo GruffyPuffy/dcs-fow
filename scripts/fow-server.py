@@ -14,12 +14,14 @@ from urllib.parse import parse_qs, urlsplit
 
 from fowctl import exchange
 from fow_store import Store
+import dcs_structures
 
 
 PAGE = Path(__file__).resolve().parent.parent / "viewer" / "index.html"
 CATALOG = Path(__file__).resolve().parent.parent / "missions" / "spawn_catalog.json"
 UNIT_CATALOG = CATALOG.with_name("unit_catalog.json")
 AIR_CATALOG = CATALOG.with_name("air_trial.json")
+AIR_TEMPLATES = CATALOG.with_name("air_templates.json")
 
 
 def load_catalog() -> dict:
@@ -276,11 +278,16 @@ def main() -> None:
                 groups = snapshot.get("groups", [])
                 allowed = {"blue": 2, "red": 1, "admin": None}[side]
                 required_category = 0 if op in ("air_move", "set_mission", "rtb") else 2
-                if not any(g.get("name") == name and (op == "alias" or g.get("category") == required_category) and
-                           g.get("coalition") in (1, 2) and
-                           (allowed is None or g.get("coalition") == allowed) and g.get("units") for g in groups):
+                matching_groups = [g for g in groups
+                                   if g.get("name") == name
+                                   and (op == "alias" or g.get("category") == required_category)
+                                   and g.get("coalition") in (1, 2)
+                                   and (allowed is None or g.get("coalition") == allowed)
+                                   and g.get("units")]
+                if not matching_groups:
                     self.json_response(400, {"ok": False, "error": "Choose an active group on this side"})
                     return
+                active_group = matching_groups[0]
             if op == "alias":
                 store.set_alias(name, alias)
                 self.json_response(200, {"ok": True, "group": name, "alias": alias})
@@ -288,28 +295,64 @@ def main() -> None:
             order_id = uuid.uuid4().hex
             store.create_order(order_id, op, name, lat, lon, altitude_m, mission_type_val, loadout_val, rtb_base_val)
             try:
-                fields = {"group": name}
-                if op == "spawn":
-                    fields = {"side": side, "template": template, "lat": lat, "lon": lon}
-                    if custom_name:
-                        fields["name"] = custom_name
-                elif op == "spawn_air":
-                    fields = {"side": side, "preset": template, "lat": lat, "lon": lon}
-                    if custom_name:
-                        fields["name"] = custom_name
-                elif op in ("move", "air_move"):
-                    fields.update(lat=lat, lon=lon)
-                elif op == "set_mission":
-                    fields.update(lat=lat, lon=lon, mission_type=mission_type, altitude_m=altitude_m)
-                elif op == "rtb":
-                    fields["airbase"] = rtb_base
-                elif op == "air_move":
-                    fields["altitude_m"] = altitude_m
-                elif op == "set_roe":
-                    fields["mode"] = mode
-                result = exchange(args.bridge_host, args.bridge_port,
-                                  "move_geo" if op == "move" else op,
-                                  request_id=order_id, **fields)
+                if op == "spawn_air":
+                    air_catalog_data = json.loads(AIR_CATALOG.read_text())
+                    preset_config = air_catalog_data["presets"][side][template]
+                    group_template = json.loads(AIR_TEMPLATES.read_text())[side][template]["group"]
+                    actual_name = custom_name if custom_name else f"FoW {side.title()} {preset_config['label']} {order_id[:3]}"
+                    spawn_lat, spawn_lon = dcs_structures.air_start_position(lat, lon)
+
+                    spawn_data = dcs_structures.build_air_spawn_data(
+                        side=side,
+                        preset_config=preset_config,
+                        group_template=group_template,
+                        spawn_lat=spawn_lat,
+                        spawn_lon=spawn_lon,
+                        mission_lat=lat,
+                        mission_lon=lon,
+                        group_name=actual_name
+                    )
+                    result = exchange(args.bridge_host, args.bridge_port, "spawn_group",
+                                    request_id=order_id, **spawn_data)
+                    if result.get("ok"):
+                        store.rename_order_group(order_id, actual_name)
+                elif op == "spawn":
+                    template_config = catalog[side][template]
+                    actual_name = custom_name if custom_name else f"FoW {side.title()} {template_config['label']} {order_id[:3]}"
+                    spawn_data = dcs_structures.build_ground_spawn_data(
+                        side, template_config, actual_name, lat, lon)
+                    result = exchange(args.bridge_host, args.bridge_port, "spawn_group",
+                                      request_id=order_id, **spawn_data)
+                    if result.get("ok"):
+                        store.rename_order_group(order_id, actual_name)
+                else:
+                    lead = active_group["units"][0]
+                    if op == "move":
+                        route_data = dcs_structures.build_ground_route(
+                            lead["lat"], lead["lon"], lat, lon)
+                        result = exchange(args.bridge_host, args.bridge_port, "set_route",
+                                          request_id=order_id, group_name=name,
+                                          route_data=route_data)
+                    elif op in ("air_move", "set_mission"):
+                        selected_mission = mission_type if op == "set_mission" else "patrol"
+                        speed_mps = 250 if selected_mission == "CAP" else 210
+                        route = dcs_structures.build_route_update(
+                            selected_mission, lead["lat"], lead["lon"], lat, lon,
+                            altitude_m, speed_mps)
+                        result = exchange(args.bridge_host, args.bridge_port, "set_route",
+                                          request_id=order_id, group_name=name, **route)
+                    elif op == "rtb":
+                        result = exchange(args.bridge_host, args.bridge_port, "set_task",
+                                          request_id=order_id, group_name=name,
+                                          task_data=dcs_structures.build_rtb_task(rtb_base))
+                    elif op == "hold":
+                        result = exchange(args.bridge_host, args.bridge_port, "set_task",
+                                          request_id=order_id, group_name=name,
+                                          task_data={"id": "Hold", "params": {}})
+                    else:
+                        option = dcs_structures.build_roe_option(mode)
+                        result = exchange(args.bridge_host, args.bridge_port, "set_option",
+                                          request_id=order_id, group_name=name, **option)
             except (OSError, RuntimeError, ValueError) as error:
                 store.finish_order(order_id, "unknown", str(error))
                 self.json_response(502, {"ok": False, "error": str(error), "order_id": order_id, "state": "unknown"})
@@ -320,9 +363,9 @@ def main() -> None:
                 store.rename_order_group(order_id, group_name)
                 if result["result"].endswith(";ROE=OPEN_FIRE"):
                     store.set_roe(group_name, "open_fire")
-            if op == "spawn_air" and result.get("ok") and result.get("result", "").startswith("AIR_SPAWN_ACCEPTED:"):
-                group_name = result["result"].split(":", 1)[1].split(";", 1)[0]
-                store.rename_order_group(order_id, group_name)
+            if op == "spawn_air" and result.get("ok") and result.get("result", "").startswith("SPAWN_ACCEPTED:"):
+                # Generic bridge returns SPAWN_ACCEPTED, name already set above
+                pass
             if op == "set_roe" and result.get("ok"):
                 store.set_roe(name, mode)
             store.finish_order(order_id, order_state, result.get("result") or result.get("error") or "No detail")

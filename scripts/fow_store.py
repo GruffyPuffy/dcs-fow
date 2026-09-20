@@ -115,7 +115,8 @@ class Store:
         with self.connection() as db:
             session = int(self.get_meta(db, "session", "1"))
             previous = float(self.get_meta(db, "mission_time", "-1"))
-            if self.get_meta(db, "mission_id", "") != mission_id or \
+            previous_mission_id = self.get_meta(db, "mission_id", "")
+            if (previous_mission_id and previous_mission_id != mission_id) or \
                     (previous >= 0 and mission_time < previous - 5):
                 session += 1
                 for table in ("orders", "units", "tracks", "aliases", "roe"):

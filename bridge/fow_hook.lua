@@ -34,7 +34,7 @@ end
 -- inserted as code. Future structured orders can pass through this hook.
 local function literal(value, depth, budget)
     budget.count = budget.count + 1
-    if budget.count > 256 or depth > 6 then error('REQUEST_COMPLEXITY') end
+    if budget.count > 512 or depth > 12 then error('REQUEST_COMPLEXITY') end
     local kind = type(value)
     if kind == 'string' then
         if #value > 2048 then error('STRING_TOO_LONG') end

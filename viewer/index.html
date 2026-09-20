@@ -267,7 +267,10 @@
           L.circleMarker(targetPoint, {radius:8, color:'#f4d37c', weight:2, fillOpacity:0.2}).addTo(draftLayers);
           if (panelMode === 'orders' && needsPoint && selectedUnit
               && Number.isFinite(selectedUnit.lat) && Number.isFinite(selectedUnit.lon)) {
-            L.polyline([[selectedUnit.lat,selectedUnit.lon],targetPoint], {color:'#f4d37c', dashArray:'5,6', weight:2}).addTo(draftLayers);
+            const origin = L.latLng(selectedUnit.lat, selectedUnit.lon);
+            L.polyline([origin,targetPoint], {color:'#f4d37c', dashArray:'5,6', weight:2})
+              .bindTooltip(`${(origin.distanceTo(targetPoint) / 1000).toFixed(1)} km`, {permanent:true, direction:'center'})
+              .addTo(draftLayers);
           }
         }
       }
@@ -457,7 +460,10 @@
           if (!unit) continue;
           const target = [order.target_lat,order.target_lon];
           const color = group.coalition === 2 ? '#6baaff' : '#ff7b7b';
-          L.polyline([[unit.lat,unit.lon],target], {color, weight:2, dashArray:'7,5'}).addTo(orderLayers);
+          const origin = L.latLng(unit.lat, unit.lon);
+          L.polyline([origin,target], {color, weight:2, dashArray:'7,5'})
+            .bindTooltip(`${(origin.distanceTo(target) / 1000).toFixed(1)} km`, {permanent:true, direction:'center'})
+            .addTo(orderLayers);
           L.circleMarker(target, {radius:7, color, weight:2, fillOpacity:0.25})
             .bindPopup(popup(`${order.group_name} last requested point`, [`${order.op} · order ${order.id.slice(0,8)}`, `Requested altitude: ${order.target_alt_m == null ? 'ground' : `${Math.round(order.target_alt_m)} m MSL`}`, order.state.replace('_',' '), new Date(order.created_at*1000).toLocaleString(), 'FoW request; DCS route is not read back.']))
             .addTo(orderLayers);

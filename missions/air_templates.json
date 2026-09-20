@@ -1,0 +1,409 @@
+{
+  "blue": {
+    "hornet_cap": {
+      "label": "F/A-18C CAP",
+      "mission_type": "CAP",
+      "altitude_m": 7000,
+      "speed_mps": 250,
+      "loadout": "cap_light",
+      "default_rtb_base": "Batumi",
+      "orbit_radius_m": 18520,
+      "group": {
+        "name": "FoW blue hornet_cap template",
+        "hidden": false,
+        "hiddenOnPlanner": false,
+        "hiddenOnMFD": false,
+        "x": -370810.6875,
+        "y": 622386.1875,
+        "units": {
+          "1": {
+            "type": "FA-18C_hornet",
+            "x": -370810.6875,
+            "y": 622386.1875,
+            "heading": 0.0,
+            "name": "FoW blue hornet_cap template Pilot #1",
+            "skill": "High",
+            "alt": 7000,
+            "alt_type": "BARO",
+            "psi": 0,
+            "onboard_num": "498",
+            "speed": 69.4444444444444,
+            "hardpoint_racks": true,
+            "AddPropAircraft": {
+              "OuterBoard": 0,
+              "InnerBoard": 0,
+              "HelmetMountedDevice": 1
+            },
+            "payload": {
+              "flare": 60,
+              "chaff": 60,
+              "fuel": 4410,
+              "gun": 100,
+              "pylons": {
+                "1": {
+                  "CLSID": "{FPU_8A_FUEL_TANk}"
+                },
+                "2": {
+                  "CLSID": "{LAU-115 - AIM-7M}"
+                },
+                "3": {
+                  "CLSID": "{LAU-115 - AIM-7M}"
+                },
+                "7": {
+                  "CLSID": "{LAU-115 - AIM-7M}"
+                },
+                "8": {
+                  "CLSID": "{LAU-115 - AIM-7M}"
+                },
+                "9": {
+                  "CLSID": "{FPU_8A_FUEL_TANk}"
+                }
+              }
+            },
+            "callsign": {
+              "1": 1,
+              "2": 1,
+              "3": 1,
+              "name": "Colt11"
+            }
+          }
+        },
+        "route": {
+          "points": {
+            "1": {
+              "alt": 7000,
+              "type": "Turning Point",
+              "name": "",
+              "x": -370810.6875,
+              "y": 622386.1875,
+              "speed": 69.4444444444444,
+              "formation_template": "",
+              "action": "Turning Point",
+              "alt_type": "BARO",
+              "ETA": 0,
+              "ETA_locked": true,
+              "speed_locked": true,
+              "task": {
+                "id": "ComboTask",
+                "params": {
+                  "tasks": {}
+                }
+              },
+              "properties": {
+                "vnav": 0,
+                "scale": 0,
+                "angle": 0,
+                "vangle": 0,
+                "steer": 2
+              }
+            }
+          }
+        },
+        "task": "Nothing",
+        "tasks": {},
+        "start_time": 0,
+        "frequency": 251,
+        "taskSelected": true,
+        "modulation": 0,
+        "communication": true,
+        "uncontrolled": false,
+        "radioSet": false
+      }
+    },
+    "hornet_patrol": {
+      "label": "F/A-18C Patrol",
+      "mission_type": "patrol",
+      "altitude_m": 5000,
+      "speed_mps": 210,
+      "loadout": "patrol_clean",
+      "default_rtb_base": "Batumi",
+      "orbit_radius_m": 18520,
+      "group": {
+        "name": "FoW blue hornet_patrol template",
+        "hidden": false,
+        "hiddenOnPlanner": false,
+        "hiddenOnMFD": false,
+        "x": -370810.6875,
+        "y": 622386.1875,
+        "units": {
+          "1": {
+            "type": "FA-18C_hornet",
+            "x": -370810.6875,
+            "y": 622386.1875,
+            "heading": 0.0,
+            "name": "FoW blue hornet_patrol template Pilot #1",
+            "skill": "High",
+            "alt": 5000,
+            "alt_type": "BARO",
+            "psi": 0,
+            "onboard_num": "513",
+            "speed": 58.3333333333333,
+            "hardpoint_racks": true,
+            "AddPropAircraft": {
+              "OuterBoard": 0,
+              "InnerBoard": 0,
+              "HelmetMountedDevice": 1
+            },
+            "payload": {
+              "flare": 60,
+              "chaff": 60,
+              "fuel": 4410,
+              "gun": 100,
+              "pylons": {
+                "1": {
+                  "CLSID": "{FPU_8A_FUEL_TANk}"
+                },
+                "5": {
+                  "CLSID": "{FPU_8A_FUEL_TANk}"
+                },
+                "9": {
+                  "CLSID": "{FPU_8A_FUEL_TANk}"
+                }
+              }
+            },
+            "callsign": {
+              "1": 1,
+              "2": 1,
+              "3": 1,
+              "name": "Dodge11"
+            }
+          }
+        },
+        "route": {
+          "points": {
+            "1": {
+              "alt": 5000,
+              "type": "Turning Point",
+              "name": "",
+              "x": -370810.6875,
+              "y": 622386.1875,
+              "speed": 58.3333333333333,
+              "formation_template": "",
+              "action": "Turning Point",
+              "alt_type": "BARO",
+              "ETA": 0,
+              "ETA_locked": true,
+              "speed_locked": true,
+              "task": {
+                "id": "ComboTask",
+                "params": {
+                  "tasks": {}
+                }
+              },
+              "properties": {
+                "vnav": 0,
+                "scale": 0,
+                "angle": 0,
+                "vangle": 0,
+                "steer": 2
+              }
+            }
+          }
+        },
+        "task": "Nothing",
+        "tasks": {},
+        "start_time": 0,
+        "frequency": 251,
+        "taskSelected": true,
+        "modulation": 0,
+        "communication": true,
+        "uncontrolled": false,
+        "radioSet": false
+      }
+    }
+  },
+  "red": {
+    "mig29_cap": {
+      "label": "MiG-29S CAP",
+      "mission_type": "CAP",
+      "altitude_m": 7000,
+      "speed_mps": 250,
+      "loadout": "cap_light",
+      "default_rtb_base": "Gudauta",
+      "orbit_radius_m": 18520,
+      "group": {
+        "name": "FoW red mig29_cap template",
+        "hidden": false,
+        "hiddenOnPlanner": false,
+        "hiddenOnMFD": false,
+        "x": -211710.085938,
+        "y": 521451.6875,
+        "units": {
+          "1": {
+            "type": "MiG-29S",
+            "x": -211710.085938,
+            "y": 521451.6875,
+            "heading": 0.0,
+            "name": "FoW red mig29_cap template Pilot #1",
+            "skill": "High",
+            "alt": 7000,
+            "alt_type": "BARO",
+            "psi": 0,
+            "onboard_num": "162",
+            "speed": 69.4444444444444,
+            "hardpoint_racks": true,
+            "payload": {
+              "flare": 30,
+              "chaff": 30,
+              "fuel": 3143,
+              "gun": 100,
+              "pylons": {
+                "1": {
+                  "CLSID": "{R-73}"
+                },
+                "2": {
+                  "CLSID": "{R-27R}"
+                },
+                "6": {
+                  "CLSID": "{R-27R}"
+                },
+                "7": {
+                  "CLSID": "{R-73}"
+                }
+              }
+            },
+            "callsign": {
+              "1": 1,
+              "2": 1,
+              "3": 1,
+              "name": "Enfield11"
+            }
+          }
+        },
+        "route": {
+          "points": {
+            "1": {
+              "alt": 7000,
+              "type": "Turning Point",
+              "name": "",
+              "x": -211710.085938,
+              "y": 521451.6875,
+              "speed": 69.4444444444444,
+              "formation_template": "",
+              "action": "Turning Point",
+              "alt_type": "BARO",
+              "ETA": 0,
+              "ETA_locked": true,
+              "speed_locked": true,
+              "task": {
+                "id": "ComboTask",
+                "params": {
+                  "tasks": {}
+                }
+              },
+              "properties": {
+                "vnav": 0,
+                "scale": 0,
+                "angle": 0,
+                "vangle": 0,
+                "steer": 2
+              }
+            }
+          }
+        },
+        "task": "Nothing",
+        "tasks": {},
+        "start_time": 0,
+        "frequency": 251,
+        "taskSelected": true,
+        "modulation": 0,
+        "communication": true,
+        "uncontrolled": false,
+        "radioSet": false
+      }
+    },
+    "mig29_patrol": {
+      "label": "MiG-29S Patrol",
+      "mission_type": "patrol",
+      "altitude_m": 5000,
+      "speed_mps": 210,
+      "loadout": "patrol_clean",
+      "default_rtb_base": "Gudauta",
+      "orbit_radius_m": 18520,
+      "group": {
+        "name": "FoW red mig29_patrol template",
+        "hidden": false,
+        "hiddenOnPlanner": false,
+        "hiddenOnMFD": false,
+        "x": -211710.085938,
+        "y": 521451.6875,
+        "units": {
+          "1": {
+            "type": "MiG-29S",
+            "x": -211710.085938,
+            "y": 521451.6875,
+            "heading": 0.0,
+            "name": "FoW red mig29_patrol template Pilot #1",
+            "skill": "High",
+            "alt": 5000,
+            "alt_type": "BARO",
+            "psi": 0,
+            "onboard_num": "393",
+            "speed": 58.3333333333333,
+            "hardpoint_racks": true,
+            "payload": {
+              "flare": 30,
+              "chaff": 30,
+              "fuel": 3143,
+              "gun": 100,
+              "pylons": {
+                "3": {
+                  "CLSID": "{PTB-800}"
+                },
+                "5": {
+                  "CLSID": "{PTB-800}"
+                }
+              }
+            },
+            "callsign": {
+              "1": 1,
+              "2": 1,
+              "3": 1,
+              "name": "Springfield11"
+            }
+          }
+        },
+        "route": {
+          "points": {
+            "1": {
+              "alt": 5000,
+              "type": "Turning Point",
+              "name": "",
+              "x": -211710.085938,
+              "y": 521451.6875,
+              "speed": 58.3333333333333,
+              "formation_template": "",
+              "action": "Turning Point",
+              "alt_type": "BARO",
+              "ETA": 0,
+              "ETA_locked": true,
+              "speed_locked": true,
+              "task": {
+                "id": "ComboTask",
+                "params": {
+                  "tasks": {}
+                }
+              },
+              "properties": {
+                "vnav": 0,
+                "scale": 0,
+                "angle": 0,
+                "vangle": 0,
+                "steer": 2
+              }
+            }
+          }
+        },
+        "task": "Nothing",
+        "tasks": {},
+        "start_time": 0,
+        "frequency": 251,
+        "taskSelected": true,
+        "modulation": 0,
+        "communication": true,
+        "uncontrolled": false,
+        "radioSet": false
+      }
+    }
+  }
+}

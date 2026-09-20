@@ -29,7 +29,6 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=10309)
     commands = parser.add_subparsers(dest="operation", required=True)
-    commands.add_parser("ping")
     commands.add_parser("status")
     test = commands.add_parser("move-test", help="Move Blue ground group 150 m northeast")
     test.add_argument("--group", default="FoW Blue Ground")
@@ -55,15 +54,39 @@ def main() -> None:
         if len(matching) != 1:
             raise SystemExit(f"Expected one active group named {args.group!r}")
         point = matching[0]["units"][0]
-        fields = {"group": args.group, "x": point["x"] + 150, "z": point["z"] + 150}
-        operation = "move"
+        fields = {"group_name": args.group, "route_data": {"points": [
+            {"x": point["x"], "y": point["z"], "action": "Off Road", "speed": 5, "speed_locked": True},
+            {"x": point["x"] + 150, "y": point["z"] + 150,
+             "action": "Off Road", "speed": 5, "speed_locked": True},
+        ]}}
+        operation = "set_route"
     elif operation == "move":
-        fields = {"group": args.group, "x": args.x, "z": args.z}
+        snapshot = exchange(args.host, args.port, "status")
+        matching = [g for g in snapshot.get("groups", []) if g["name"] == args.group and g["units"]]
+        if len(matching) != 1:
+            raise SystemExit(f"Expected one active group named {args.group!r}")
+        point = matching[0]["units"][0]
+        fields = {"group_name": args.group, "route_data": {"points": [
+            {"x": point["x"], "y": point["z"], "action": "Off Road", "speed": 5, "speed_locked": True},
+            {"x": args.x, "y": args.z, "action": "Off Road", "speed": 5, "speed_locked": True},
+        ]}}
+        operation = "set_route"
     elif operation == "move-geo":
-        fields = {"group": args.group, "lat": args.lat, "lon": args.lon}
-        operation = "move_geo"
+        snapshot = exchange(args.host, args.port, "status")
+        matching = [g for g in snapshot.get("groups", []) if g["name"] == args.group and g["units"]]
+        if len(matching) != 1:
+            raise SystemExit(f"Expected one active group named {args.group!r}")
+        point = matching[0]["units"][0]
+        fields = {"group_name": args.group, "route_data": {"points": [
+            {"action": "Off Road", "speed": 5, "speed_locked": True,
+             "__geo": {"lat": point["lat"], "lon": point["lon"]}},
+            {"action": "Off Road", "speed": 5, "speed_locked": True,
+             "__geo": {"lat": args.lat, "lon": args.lon}},
+        ]}}
+        operation = "set_route"
     elif operation == "hold":
-        fields = {"group": args.group}
+        fields = {"group_name": args.group, "task_data": {"id": "Hold", "params": {}}}
+        operation = "set_task"
 
     reply = exchange(args.host, args.port, operation, **fields)
     print(json.dumps(reply, indent=2, ensure_ascii=False))

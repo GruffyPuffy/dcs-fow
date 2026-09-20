@@ -23,18 +23,11 @@ Added named flight plan presets for spawning fighters with Patrol and CAP missio
 - Applies loadouts using pydcs `load_pylon()` before capturing group data
 - Stores preset metadata (mission_type, altitude, speed, etc.) alongside group data
 
-### 3. Mission Bridge (`missions/fow_bridge.lua`)
-- **Updated `spawnAir`**: Reads from new catalog structure, applies mission tasks
-  - CAP missions get `EngageTargets` task for aircraft at 40nm range
-  - Patrol missions get empty task (simple waypoint flying)
-  - Uses preset altitude/speed for waypoints
-  - Returns mission type in acceptance message
-- **New `setMission`**: Changes existing aircraft mission type and waypoint
-  - Validates aircraft group, creates new route with mission-appropriate tasks
-  - Supports patrol and CAP types
-- **New `rtbCommand`**: Orders aircraft to land at specified airbase
-  - Uses DCS Land task with airfield ID
-- **Updated `handle`**: Accepts `set_mission` and `rtb` operations with validation
+### 3. Mission Bridge (`missions/fow_bridge_generic.lua`)
+- Resolves server-provided geographic coordinates with DCS `coord.LLtoLO`
+- Resolves server-provided airbase references to DCS IDs
+- Applies only generic spawn, route, task, and option operations
+- Contains no CAP, patrol, RTB, ground-placement, or ROE policy
 
 ### 4. Server (`scripts/fow-server.py`)
 - **Updated `/api/spawn-air`**: Validates against new preset catalog structure
