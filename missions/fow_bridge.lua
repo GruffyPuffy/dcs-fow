@@ -13,6 +13,10 @@ local function number(value)
     return string.format('%.1f', value)
 end
 
+local function geo_number(value)
+    return string.format('%.6f', value)
+end
+
 local function reply(id, ok, result)
     return '{"v":1,"id":' .. quoted(id) .. ',"ok":' .. tostring(ok)
         .. ',"result":' .. quoted(result) .. '}'
@@ -29,12 +33,15 @@ function FoWBridge.status(id)
                 for _, unit in pairs(group:getUnits() or {}) do
                     if unit and unit:isExist() then
                         local point = unit:getPoint()
+                        local lat, lon = coord.LOtoLL(point)
                         units[#units + 1] = '{"id":' .. unit:getID()
                             .. ',"name":' .. quoted(unit:getName())
                             .. ',"type":' .. quoted(unit:getTypeName())
                             .. ',"x":' .. number(point.x)
                             .. ',"y":' .. number(point.y)
-                            .. ',"z":' .. number(point.z) .. '}'
+                            .. ',"z":' .. number(point.z)
+                            .. ',"lat":' .. geo_number(lat)
+                            .. ',"lon":' .. geo_number(lon) .. '}'
                     end
                 end
                 groups[#groups + 1] = '{"id":' .. group:getID()
@@ -47,12 +54,15 @@ function FoWBridge.status(id)
         for _, object in pairs(coalition.getStaticObjects(side) or {}) do
             if object and object:isExist() then
                 local point = object:getPoint()
+                local lat, lon = coord.LOtoLL(point)
                 statics[#statics + 1] = '{"name":' .. quoted(object:getName())
                     .. ',"type":' .. quoted(object:getTypeName())
                     .. ',"coalition":' .. side
                     .. ',"x":' .. number(point.x)
                     .. ',"y":' .. number(point.y)
-                    .. ',"z":' .. number(point.z) .. '}'
+                    .. ',"z":' .. number(point.z)
+                    .. ',"lat":' .. geo_number(lat)
+                    .. ',"lon":' .. geo_number(lon) .. '}'
             end
         end
     end

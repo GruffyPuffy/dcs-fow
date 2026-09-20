@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FoW mission viewer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    :root { color-scheme: dark; font: 14px/1.4 system-ui, sans-serif; background: #111820; color: #e9eef3; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    .shell { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: 100vh; }
+    aside { display: flex; flex-direction: column; background: #17222d; border-right: 1px solid #304252; min-height: 0; }
+    header { padding: 18px 20px 14px; border-bottom: 1px solid #304252; }
+    h1 { margin: 0; font-size: 20px; letter-spacing: .02em; }
+    .subtle { color: #a7b7c5; font-size: 12px; }
+    .summary { padding: 14px 20px; border-bottom: 1px solid #304252; }
+    #connection { font-weight: 650; }
+    .live { color: #78db9c; } .stale { color: #ffc06b; }
+    button { cursor: pointer; border: 1px solid #51677a; border-radius: 6px; background: #263746; color: #e9eef3; padding: 6px 10px; }
+    button:hover { background: #354c5d; }
+    #fit { margin-top: 10px; }
+    #groups { overflow: auto; flex: 1; padding: 10px; }
+    .group { display: block; width: 100%; margin: 0 0 7px; padding: 10px 12px; text-align: left; background: #1e2d3a; }
+    .group strong { display: block; font-size: 13px; }
+    .group span { display: block; margin-top: 3px; color: #adc0ce; font-size: 12px; }
+    .group.blue { border-left: 4px solid #6baaff; }
+    .group.red { border-left: 4px solid #ff7b7b; }
+    .group.neutral { border-left: 4px solid #c2c9d0; }
+    footer { padding: 11px 20px; border-top: 1px solid #304252; color: #a7b7c5; font-size: 11px; }
+    #map { min-height: 300px; background: #243440; }
+    .symbol { width: 34px; height: 30px; display: grid; place-items: center; font-weight: 800; font-size: 15px; color: #fff; filter: drop-shadow(0 1px 2px #111); }
+    .symbol.blue { background: #2762b0; border: 2px solid #bbd6ff; border-radius: 4px; }
+    .symbol.red { background: #aa3737; border: 2px solid #ffd0d0; transform: rotate(45deg) scale(.75); }
+    .symbol.red > span { transform: rotate(-45deg); }
+    .symbol.neutral { background: #68747c; border: 2px solid #e0e4e6; border-radius: 50%; }
+    .static-symbol { width: 11px; height: 11px; border: 2px solid #fff; background: #777; border-radius: 2px; }
+    .static-symbol.blue { background: #2762b0; } .static-symbol.red { background: #aa3737; }
+    @media (max-width: 700px) { .shell { grid-template-columns: 1fr; grid-template-rows: 220px minmax(0, 1fr); } aside { border-right: 0; border-bottom: 1px solid #304252; } header { padding: 9px 14px; } .summary { padding: 8px 14px; } #groups { display: none; } footer { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <header><h1>FoW mission viewer</h1><div class="subtle">Live DCS state · 10-second refresh</div></header>
+      <div class="summary">
+        <div id="connection" class="stale">Connecting…</div>
+        <div id="meta" class="subtle">Waiting for a snapshot</div>
+        <button id="fit" type="button">Fit visible units</button>
+      </div>
+      <div id="groups"></div>
+      <footer>Blue = friendly · Red = opposing · Gray = neutral.<br>Symbols are simplified, not formal APP-6. OpenStreetMap shows real-world geography; DCS terrain may differ.</footer>
+    </aside>
+    <main id="map" aria-label="Map of mission units"></main>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const connection = document.getElementById('connection');
+    const meta = document.getElementById('meta');
+    const list = document.getElementById('groups');
+    if (!window.L) {
+      connection.textContent = 'Map library unavailable';
+      meta.textContent = 'This viewer needs an internet connection for Leaflet and map tiles.';
+    } else {
+      const map = L.map('map', {preferCanvas: true}).setView([42.3, 42.3], 7);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+      }).addTo(map);
+      const markers = L.layerGroup().addTo(map);
+      let points = [], firstFit = true;
+      const sideName = side => side === 2 ? 'blue' : side === 1 ? 'red' : 'neutral';
+      const categoryName = category => ({0:'aircraft',1:'helicopter',2:'ground',3:'ship',4:'train'})[category] || 'group';
+      const symbolText = category => ({0:'✈',1:'H',2:'Ⅱ',3:'⚓',4:'T'})[category] || '●';
+
+      function popup(title, lines) {
+        const box = document.createElement('div');
+        const heading = document.createElement('strong');
+        heading.textContent = title;
+        box.append(heading);
+        for (const line of lines) {
+          box.append(document.createElement('br'), document.createTextNode(line));
+        }
+        return box;
+      }
+      function fit() {
+        if (points.length) map.fitBounds(L.latLngBounds(points).pad(0.2), {maxZoom: 12});
+      }
+      document.getElementById('fit').addEventListener('click', fit);
+
+      function draw(snapshot) {
+        markers.clearLayers();
+        list.replaceChildren();
+        points = [];
+        let unitCount = 0;
+        for (const group of snapshot.groups || []) {
+          const side = sideName(group.coalition);
+          const units = group.units || [];
+          unitCount += units.length;
+          for (const unit of units) {
+            if (!Number.isFinite(unit.lat) || !Number.isFinite(unit.lon)) continue;
+            const point = [unit.lat, unit.lon];
+            points.push(point);
+            const icon = L.divIcon({className: '', html: `<div class="symbol ${side}"><span>${symbolText(group.category)}</span></div>`, iconSize:[34,30], iconAnchor:[17,15]});
+            L.marker(point, {icon}).bindPopup(popup(unit.name, [group.name, `${side} ${categoryName(group.category)} · ${unit.type}`, `DCS x ${unit.x}, z ${unit.z}`, `${unit.lat.toFixed(5)}°, ${unit.lon.toFixed(5)}°`])).addTo(markers);
+          }
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `group ${side}`;
+          const name = document.createElement('strong');
+          name.textContent = group.name;
+          const detail = document.createElement('span');
+          detail.textContent = `${side} ${categoryName(group.category)} · ${units.length} unit${units.length === 1 ? '' : 's'}`;
+          button.append(name, detail);
+          if (units[0] && Number.isFinite(units[0].lat) && Number.isFinite(units[0].lon)) {
+            button.addEventListener('click', () => map.setView([units[0].lat, units[0].lon], 12));
+          }
+          list.append(button);
+        }
+        for (const object of snapshot.statics || []) {
+          if (!Number.isFinite(object.lat) || !Number.isFinite(object.lon)) continue;
+          const point = [object.lat, object.lon];
+          points.push(point);
+          const side = sideName(object.coalition);
+          const icon = L.divIcon({className: '', html: `<div class="static-symbol ${side}"></div>`, iconSize:[11,11], iconAnchor:[5,5]});
+          L.marker(point, {icon}).bindPopup(popup(object.name, [`${side} static · ${object.type}`, `DCS x ${object.x}, z ${object.z}`])).addTo(markers);
+        }
+        if (firstFit && points.length) { fit(); firstFit = false; }
+        meta.textContent = `${snapshot.groups.length} groups · ${unitCount} units · ${(snapshot.statics || []).length} statics · mission time ${Math.round(snapshot.time)}s`;
+      }
+
+      async function refresh() {
+        try {
+          const response = await fetch('/api/status', {cache:'no-store'});
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          if (data.snapshot) draw(data.snapshot);
+          const age = data.received_at ? Math.round(Date.now()/1000 - data.received_at) : null;
+          const healthy = !data.error && age !== null && age < 30;
+          connection.className = healthy ? 'live' : 'stale';
+          connection.textContent = healthy ? `DCS connected · ${age}s ago` : `DCS unavailable${age !== null ? ` · last update ${age}s ago` : ''}`;
+          if (data.error) connection.title = data.error;
+        } catch (error) {
+          connection.className = 'stale';
+          connection.textContent = 'Viewer connection failed';
+          connection.title = String(error);
+        }
+      }
+      refresh();
+      setInterval(refresh, 10000);
+    }
+  </script>
+</body>
+</html>
