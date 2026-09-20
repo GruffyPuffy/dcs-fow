@@ -1,0 +1,4 @@
+{
+  "blue": {"test_flight": {"label": "F/A-18C AI air start (unarmed)", "origin": "near Batumi", "altitude_m": 5000}},
+  "red": {"test_flight": {"label": "MiG-29S AI air start (unarmed)", "origin": "near Gudauta", "altitude_m": 5000}}
+}

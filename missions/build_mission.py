@@ -5,6 +5,7 @@ Keep one mission and add or change client slots here as the project develops.
 """
 
 from pathlib import Path
+import json
 import sys
 
 import dcs
@@ -13,6 +14,22 @@ import dcs
 def client(group: dcs.unitgroup.FlyingGroup, name: str) -> None:
     group.units[0].skill = dcs.unit.Skill.Client
     group.units[0].name = name
+
+
+def lua_literal(value):
+    if value is None:
+        return "nil"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, dict):
+        return "{" + ",".join("[" + lua_literal(k) + "]=" + lua_literal(v) for k, v in value.items()) + "}"
+    if isinstance(value, list):
+        return "{" + ",".join(lua_literal(v) for v in value) + "}"
+    if isinstance(value, str):
+        return json.dumps(value)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(value)
+    raise ValueError(f"Unsupported catalog value: {value!r}")
 
 
 def main() -> None:
@@ -27,7 +44,13 @@ def main() -> None:
     # Batumi belong to Blue, so the airfield warehouse must belong to Blue too.
     batumi.set_blue()
     hornet = dcs.planes.FA_18C_hornet
-    mission.init_script = Path(__file__).with_name("fow_bridge.lua").read_text()
+    catalog = json.loads(Path(__file__).with_name("spawn_catalog.json").read_text())
+    unit_catalog = json.loads(Path(__file__).with_name("unit_catalog.json").read_text())
+    for side in ("blue", "red"):
+        overlap = set(catalog[side]) & set(unit_catalog[side])
+        if overlap:
+            raise ValueError(f"Duplicate spawn IDs for {side}: {overlap}")
+        catalog[side].update(unit_catalog[side])
 
     client(
         mission.flight_group_inflight(
@@ -84,6 +107,34 @@ def main() -> None:
         _type=dcs.vehicles.Unarmed.Ural_375,
         position=dcs.Point(gudauta.position.x + 2500, gudauta.position.y + 2500, mission.terrain),
     )
+
+    # Capture valid pydcs AI flight data, then remove the template groups. The
+    # mission Lua clones these known-good tables for the manual air-start trial.
+    air_catalog = {}
+    air_config = json.loads(Path(__file__).with_name("air_trial.json").read_text())
+    for side, country, airport, aircraft in (
+        ("blue", usa, batumi, dcs.planes.FA_18C_hornet),
+        ("red", mission.country("Russia"), gudauta, dcs.planes.MiG_29S),
+    ):
+        group = mission.flight_group_inflight(
+            country=country, name=f"FoW {side} air template", aircraft_type=aircraft,
+            position=dcs.Point(airport.position.x - 15000, airport.position.y + 5000, mission.terrain),
+            altitude=5000, speed=750, maintask=dcs.task.Nothing, group_size=1,
+        )
+        group.units[0].skill = dcs.unit.Skill.High
+        data = group.dict()
+        data.pop("groupId", None)
+        for unit in data["units"].values():
+            unit.pop("unitId", None)
+        for waypoint in data["route"]["points"].values():
+            waypoint["task"] = {"id": "ComboTask", "params": {"tasks": {}}}
+        if not mission.remove_plane_group(group):
+            raise RuntimeError("Could not remove temporary AI flight template")
+        air_catalog[side] = {"test_flight": {"label": air_config[side]["test_flight"]["label"], "group": data}}
+
+    mission.init_script = ("FoWAirCatalog = " + lua_literal(air_catalog) + "\n" +
+                           "FoWSpawnCatalog = " + lua_literal(catalog) + "\n" +
+                           Path(__file__).with_name("fow_bridge.lua").read_text())
 
     output.parent.mkdir(parents=True, exist_ok=True)
     mission.save(str(output))

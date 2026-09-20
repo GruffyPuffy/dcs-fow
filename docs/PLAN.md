@@ -38,13 +38,13 @@ The proposed loop is: collect authoritative mission state; maintain side-specifi
 | 0. Align | Choose the first map, host and client setup. | **Done for the server trial:** Ubuntu 24.04, Caucasus, F/A-18C Windows client. Broader FoW scope remains open. |
 | 1. Host feasibility | Run [Experiment 0001](experiments/0001-linux-server-client-join.md): host one repo-owned Caucasus mission and join from Windows. | **Working:** server install, auto start, LAN join, air and ground spawn. Resource measurements and reboot test remain useful operational follow-up. |
 | 2. Live bridge | Export group status from mission Lua and pass a fixed command through a Saved Games hook. | **Partial:** the [JSON bridge](BRIDGE.md) returned both groups, accepted a move, rejected a missing group, and Blue reached its target. Still need reconnect, restart, player-join and larger-state tests. |
-| 2a. Local viewer | Plot raw bridge state before building fog-of-war views. | [Viewer](VIEWER.md) and map coordinate fields are built; live map display awaits a mission restart. |
+| 2a. Manual commander | Plot positions, retain orders and tracks, submit typed commands. | [Manual commander](VIEWER.md) polls live bridge state; movement and truck/Hawk spawning have been seen in DCS. Names, ROE, DCS-derived unit choices and range overlays are staged for the next live trial. Sensor contacts and authenticated roles remain. |
 | 3. Deterministic battle | Add fixed zones, objectives, two sides, basic detection filtering, action validation and scripted commanders. | Both sides act independently without an LLM; hidden units remain absent from enemy views. |
 | 4. Local LLM trial | Add separate Red/Blue briefs and structured output behind the same validator. Replay recorded states and compare decisions. | Valid order rate, inference latency, strategic continuity and failure behavior measured on the actual host. |
 | 5. Living mission | Add player interaction, broader orders, reinforcements and persistence only where evidence supports them. | An unattended session evolves coherently; a human can join and affect later decisions. |
 | 6. Packaging | Write Ubuntu 24.04 installer/operations scripts from the proven setup. | Repeatable installation on a clean environment with documented upgrades and backups. |
 
-Agree on each new experiment before implementing it. The first server trial is complete enough to begin designing Stage 2; the later stages remain proposals.
+The first server trial is complete enough to develop a manual control loop. Basic ground spawning works; broader unit choices, detection and casualty accounting remain separate acceptance gates before AI work.
 
 ## Open design questions
 

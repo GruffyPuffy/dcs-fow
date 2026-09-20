@@ -5,10 +5,16 @@ repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 container=dcs-fow-server
 generator="$repo_dir/missions/build_mission.py"
 mission_lua="$repo_dir/missions/fow_bridge.lua"
+catalog="$repo_dir/missions/spawn_catalog.json"
+unit_catalog="$repo_dir/missions/unit_catalog.json"
+air_catalog="$repo_dir/missions/air_trial.json"
 output="$repo_dir/missions/fow.miz"
 container_venv=/tmp/dcs-fow-pydcs-venv
 container_generator=/tmp/dcs-fow-build-mission.py
 container_lua=/tmp/fow_bridge.lua
+container_catalog=/tmp/spawn_catalog.json
+container_unit_catalog=/tmp/unit_catalog.json
+container_air_catalog=/tmp/air_trial.json
 container_output=/tmp/dcs-fow-built.miz
 
 if [[ "$#" -ne 0 ]]; then
@@ -22,6 +28,18 @@ if [[ ! -f "$generator" ]]; then
 fi
 if [[ ! -f "$mission_lua" ]]; then
   echo "Missing mission Lua: $mission_lua" >&2
+  exit 1
+fi
+if [[ ! -f "$catalog" ]]; then
+  echo "Missing spawn catalog: $catalog" >&2
+  exit 1
+fi
+if [[ ! -f "$unit_catalog" ]]; then
+  echo "Missing DCS unit catalog. Run: ./scripts/refresh-unit-catalog.py" >&2
+  exit 1
+fi
+if [[ ! -f "$air_catalog" ]]; then
+  echo "Missing air trial catalog: $air_catalog" >&2
   exit 1
 fi
 if ! command -v docker >/dev/null 2>&1; then
@@ -47,6 +65,9 @@ docker exec "$container" /bin/bash -lc \
 
 docker cp "$generator" "$container:$container_generator"
 docker cp "$mission_lua" "$container:$container_lua"
+docker cp "$catalog" "$container:$container_catalog"
+docker cp "$unit_catalog" "$container:$container_unit_catalog"
+docker cp "$air_catalog" "$container:$container_air_catalog"
 docker exec "$container" "$container_venv/bin/python" "$container_generator" "$container_output" 2>&1 | tail -n 5
 
 temporary="$(mktemp "$repo_dir/missions/.fow-build.XXXXXX.miz")"
@@ -64,7 +85,7 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     batumi = re.search(r'\[22\]=\s*\{.{0,400}?\["coalition"\]="([A-Z]+)"', warehouses, re.S)
     if mission.count('["skill"]="Client"') != 3 or not batumi or batumi.group(1) != "BLUE":
         raise SystemExit("Mission validation failed: expected three Client slots and Blue Batumi")
-    for marker in ('FoW Blue Ground', 'FoW Red Ground', 'FOW_BRIDGE_READY'):
+    for marker in ('FoW Blue Ground', 'FoW Red Ground', 'FOW_BRIDGE_READY', 'FoWSpawnCatalog', 'FoWAirCatalog'):
         if marker not in mission:
             raise SystemExit(f"Mission validation failed: missing {marker}")
 PY

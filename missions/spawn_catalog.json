@@ -1,0 +1,12 @@
+{
+  "blue": {
+    "vehicle": {"label": "Single truck", "units": [{"type": "M 818", "dx": 0, "dy": 0}]},
+    "platoon": {"label": "Mechanized group", "units": [{"type": "M-1 Abrams", "dx": 0, "dy": 0}, {"type": "M-1 Abrams", "dx": 35, "dy": 0}, {"type": "M-1 Abrams", "dx": 0, "dy": 35}, {"type": "M-1 Abrams", "dx": 35, "dy": 35}]},
+    "sam": {"label": "Hawk SAM site", "range_m": 45000, "units": [{"type": "Hawk sr", "dx": 0, "dy": 0}, {"type": "Hawk tr", "dx": 60, "dy": 0}, {"type": "Hawk pcp", "dx": 0, "dy": 60}, {"type": "Hawk ln", "dx": 60, "dy": 60}]}
+  },
+  "red": {
+    "vehicle": {"label": "Single truck", "units": [{"type": "Ural-375", "dx": 0, "dy": 0}]},
+    "platoon": {"label": "Mechanized group", "units": [{"type": "BMP-2", "dx": 0, "dy": 0}, {"type": "BMP-2", "dx": 35, "dy": 0}, {"type": "BMP-2", "dx": 0, "dy": 35}, {"type": "BMP-2", "dx": 35, "dy": 35}]},
+    "sam": {"label": "Buk SAM site", "range_m": 35000, "units": [{"type": "SA-11 Buk SR 9S18M1", "dx": 0, "dy": 0}, {"type": "SA-11 Buk CC 9S470M1", "dx": 60, "dy": 0}, {"type": "SA-11 Buk LN 9A310M1", "dx": 0, "dy": 60}, {"type": "SA-11 Buk LN 9A310M1", "dx": 60, "dy": 60}]}
+  }
+}

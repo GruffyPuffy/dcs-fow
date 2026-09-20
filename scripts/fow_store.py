@@ -1,4 +1,4 @@
-"""Persistent manual FoW order and observation ledger."""
+"""Local manual FoW ledger, retained only for the current DCS mission run."""
 
 from contextlib import contextmanager
 import math
@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS orders (
     group_name TEXT NOT NULL,
     target_lat REAL,
     target_lon REAL,
+    target_alt_m REAL,
     state TEXT NOT NULL,
     detail TEXT NOT NULL,
     observed_at REAL
@@ -31,6 +32,28 @@ CREATE TABLE IF NOT EXISTS units (
     last_seen REAL NOT NULL,
     present INTEGER NOT NULL,
     PRIMARY KEY (session, unit_id)
+);
+CREATE TABLE IF NOT EXISTS tracks (
+    session INTEGER NOT NULL,
+    group_name TEXT NOT NULL,
+    observed_at REAL NOT NULL,
+    mission_time REAL NOT NULL,
+    lat REAL NOT NULL,
+    lon REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tracks_group ON tracks(session,group_name,observed_at);
+CREATE TABLE IF NOT EXISTS aliases (
+    session INTEGER NOT NULL,
+    group_name TEXT NOT NULL,
+    alias TEXT NOT NULL,
+    PRIMARY KEY(session,group_name)
+);
+CREATE TABLE IF NOT EXISTS roe (
+    session INTEGER NOT NULL,
+    group_name TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY(session,group_name)
 );
 """
 
@@ -48,6 +71,8 @@ class Store:
         path.parent.mkdir(parents=True, exist_ok=True)
         with self.connection() as db:
             db.executescript(SCHEMA)
+            if "target_alt_m" not in {row["name"] for row in db.execute("PRAGMA table_info(orders)")}:
+                db.execute("ALTER TABLE orders ADD COLUMN target_alt_m REAL")
             db.execute("UPDATE orders SET state='unknown',detail='FoW server restarted before reply' WHERE state='pending'")
 
     @contextmanager
@@ -72,11 +97,20 @@ class Store:
     def record_snapshot(self, snapshot: dict) -> None:
         now = time.time()
         mission_time = float(snapshot["time"])
+        # Older running missions lack an ID. Keep their time-reset behavior so
+        # the viewer remains usable until the updated mission is loaded.
+        mission_id = snapshot.get("mission_id", "legacy-status")
+        if not isinstance(mission_id, str) or not mission_id:
+            raise ValueError("Invalid DCS mission instance ID")
         with self.connection() as db:
             session = int(self.get_meta(db, "session", "1"))
             previous = float(self.get_meta(db, "mission_time", "-1"))
-            if previous >= 0 and mission_time < previous - 5:
+            if self.get_meta(db, "mission_id", "") != mission_id or \
+                    (previous >= 0 and mission_time < previous - 5):
                 session += 1
+                for table in ("orders", "units", "tracks", "aliases", "roe"):
+                    db.execute(f"DELETE FROM {table}")
+            self.set_meta(db, "mission_id", mission_id)
             self.set_meta(db, "session", session)
             self.set_meta(db, "mission_time", mission_time)
             db.execute("UPDATE units SET present=0 WHERE session=?", (session,))
@@ -84,7 +118,12 @@ class Store:
             for group in snapshot.get("groups", []):
                 units = group.get("units", [])
                 if units:
-                    current_groups[group["name"]] = units[0]
+                    lead = min(units, key=lambda unit: unit["id"])
+                    current_groups[group["name"]] = lead
+                    if isinstance(lead.get("lat"), (int, float)) and isinstance(lead.get("lon"), (int, float)):
+                        last = db.execute("SELECT lat,lon,observed_at FROM tracks WHERE session=? AND group_name=? ORDER BY observed_at DESC LIMIT 1", (session, group["name"])).fetchone()
+                        if not last or distance_m(last["lat"], last["lon"], lead["lat"], lead["lon"]) >= 15 or now - last["observed_at"] >= 60:
+                            db.execute("INSERT INTO tracks VALUES(?,?,?,?,?,?)", (session, group["name"], now, mission_time, lead["lat"], lead["lon"]))
                 for unit in units:
                     db.execute("""
                         INSERT INTO units(session,unit_id,name,group_name,coalition,first_seen,last_seen,present)
@@ -95,29 +134,57 @@ class Store:
                     """, (session, unit["id"], unit["name"], group["name"], group["coalition"], now, now))
             for order in db.execute("""
                 SELECT id,group_name,target_lat,target_lon FROM orders
-                WHERE session=? AND op='move' AND state='accepted'
+                WHERE session=? AND op IN ('move','air_move') AND state='accepted'
             """, (session,)).fetchall():
                 unit = current_groups.get(order["group_name"])
-                if unit and distance_m(unit["lat"], unit["lon"], order["target_lat"], order["target_lon"]) <= 25:
+                arrival_radius = 2000 if any(g.get("name") == order["group_name"] and g.get("category") == 0
+                                             for g in snapshot.get("groups", [])) else 25
+                if unit and distance_m(unit["lat"], unit["lon"], order["target_lat"], order["target_lon"]) <= arrival_radius:
                     db.execute("UPDATE orders SET state='at_target',observed_at=? WHERE id=?", (now, order["id"]))
 
-    def create_order(self, order_id: str, op: str, group: str, lat: float | None, lon: float | None) -> None:
+    def create_order(self, order_id: str, op: str, group: str, lat: float | None,
+                     lon: float | None, alt_m: float | None = None) -> None:
         with self.connection() as db:
             session = int(self.get_meta(db, "session", "1"))
             db.execute("""
-                INSERT INTO orders(id,session,created_at,op,group_name,target_lat,target_lon,state,detail)
-                VALUES(?,?,?,?,?,?,?,'pending','Awaiting DCS reply')
-            """, (order_id, session, time.time(), op, group, lat, lon))
+                INSERT INTO orders(id,session,created_at,op,group_name,target_lat,target_lon,target_alt_m,state,detail)
+                VALUES(?,?,?,?,?,?,?,?,'pending','Awaiting DCS reply')
+            """, (order_id, session, time.time(), op, group, lat, lon, alt_m))
 
     def finish_order(self, order_id: str, state: str, detail: str) -> None:
         with self.connection() as db:
-            row = db.execute("SELECT session,group_name FROM orders WHERE id=?", (order_id,)).fetchone()
+            row = db.execute("SELECT session,group_name,op FROM orders WHERE id=?", (order_id,)).fetchone()
             if state == "accepted" and row:
-                db.execute("""
-                    UPDATE orders SET state='superseded' WHERE session=? AND group_name=? AND id<>?
-                    AND state IN ('accepted','at_target')
-                """, (row["session"], row["group_name"], order_id))
+                lane = ("move", "hold") if row["op"] in ("move", "hold") else \
+                    ("air_move",) if row["op"] == "air_move" else \
+                    ("set_roe",) if row["op"] == "set_roe" else ()
+                if lane:
+                    db.execute("""
+                        UPDATE orders SET state='superseded' WHERE session=? AND group_name=? AND id<>?
+                        AND state IN ('accepted','at_target') AND op IN (""" + ",".join("?" for _ in lane) + ")",
+                        (row["session"], row["group_name"], order_id, *lane))
             db.execute("UPDATE orders SET state=?,detail=? WHERE id=?", (state, detail, order_id))
+
+    def rename_order_group(self, order_id: str, group_name: str) -> None:
+        with self.connection() as db:
+            db.execute("UPDATE orders SET group_name=? WHERE id=?", (group_name, order_id))
+
+    def set_alias(self, group_name: str, alias: str) -> None:
+        with self.connection() as db:
+            session = int(self.get_meta(db, "session", "1"))
+            if alias == group_name:
+                db.execute("DELETE FROM aliases WHERE session=? AND group_name=?", (session, group_name))
+            else:
+                db.execute("""INSERT INTO aliases(session,group_name,alias) VALUES(?,?,?)
+                    ON CONFLICT(session,group_name) DO UPDATE SET alias=excluded.alias""",
+                    (session, group_name, alias))
+
+    def set_roe(self, group_name: str, mode: str) -> None:
+        with self.connection() as db:
+            session = int(self.get_meta(db, "session", "1"))
+            db.execute("""INSERT INTO roe(session,group_name,mode,updated_at) VALUES(?,?,?,?)
+                ON CONFLICT(session,group_name) DO UPDATE SET mode=excluded.mode,updated_at=excluded.updated_at""",
+                (session, group_name, mode, time.time()))
 
     def dashboard(self) -> dict:
         with self.connection() as db:
@@ -129,5 +196,16 @@ class Store:
                 counts["present"] += present
                 counts["missing"] += seen - present
                 counts["by_coalition"][str(row["coalition"])] = {"seen": seen, "present": present, "missing": seen - present}
-            orders = [dict(row) for row in db.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT 100")]
-            return {"session": session, "roster": counts, "orders": orders}
+            orders = [dict(row) for row in db.execute(
+                "SELECT * FROM orders WHERE session=? ORDER BY created_at DESC LIMIT 100", (session,))]
+            tracks = {}
+            for row in db.execute("SELECT group_name,lat,lon,observed_at FROM tracks WHERE session=? ORDER BY observed_at DESC LIMIT 2000", (session,)):
+                tracks.setdefault(row["group_name"], []).append([row["lat"], row["lon"]])
+            for points in tracks.values():
+                points.reverse()
+            aliases = {row["group_name"]: row["alias"] for row in db.execute(
+                "SELECT group_name,alias FROM aliases WHERE session=?", (session,))}
+            roe = {row["group_name"]: row["mode"] for row in db.execute(
+                "SELECT group_name,mode FROM roe WHERE session=?", (session,))}
+            return {"session": session, "roster": counts, "orders": orders,
+                    "tracks": tracks, "aliases": aliases, "roe": roe}

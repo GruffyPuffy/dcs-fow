@@ -1,0 +1,2305 @@
+{
+  "blue": {
+    "unit_da799c995c02eedc": {
+      "label": "2B11 mortar",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "2B11 mortar",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_1b172242ab01b0ba": {
+      "label": "AAV7",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "AAV7",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_5f68b0c67567ef32": {
+      "label": "bofors40",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "bofors40",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_31592f131940e7d3": {
+      "label": "Boxcartrinity",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Boxcartrinity",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_86cc94a9632c2fbf": {
+      "label": "CCKW_353",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "CCKW_353",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_a6fc50f6be1756ba": {
+      "label": "ES44AH",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ES44AH",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_34ec8aa793ea0e84": {
+      "label": "FPS-117",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "FPS-117",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_4dc8d6b20bc057f6": {
+      "label": "FPS-117 Dome",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "FPS-117 Dome",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_70c1928ab813bb64": {
+      "label": "FPS-117 ECS",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "FPS-117 ECS",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_aeb21e76f9c6481c": {
+      "label": "Hawk cwar",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Hawk cwar",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_94052915fc3477cd": {
+      "label": "Hawk ln",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Hawk ln",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_8521e06984062959": {
+      "label": "Hawk pcp",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Hawk pcp",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_726077d192c24adf": {
+      "label": "Hawk sr",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Hawk sr",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_0f4709ca6ba42d07": {
+      "label": "Hawk tr",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Hawk tr",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_d0f32417493a01a8": {
+      "label": "HEMTT TFFT",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "HEMTT TFFT",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_44480ce1fbaad491": {
+      "label": "HEMTT_C-RAM_Phalanx",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "HEMTT_C-RAM_Phalanx",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_94acfff7460793c2": {
+      "label": "HL_B8M1",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "HL_B8M1",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_d941d429f3e24665": {
+      "label": "HL_DSHK",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "HL_DSHK",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_1d6d026fbfd6e109": {
+      "label": "HL_KORD",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "HL_KORD",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_f4205a30e44bdb1c": {
+      "label": "HL_ZU-23",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "HL_ZU-23",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_347137b49b2476ef": {
+      "label": "Hummer",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Hummer",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_39038408fa35f2b8": {
+      "label": "JTAC",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "JTAC",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_335a0861ae4bd078": {
+      "label": "LAV-25",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "LAV-25",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_812c49065e0e27f6": {
+      "label": "M 818",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M 818",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_d0ba93bb8e0130eb": {
+      "label": "M-1 Abrams",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M-1 Abrams",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_d8e8aa562ad8eab4": {
+      "label": "M-109",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M-109",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_7fa73acdc0955519": {
+      "label": "M-113",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M-113",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_7da8a1b9a7d4307d": {
+      "label": "M-2 Bradley",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M-2 Bradley",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_29dda68c7caa116f": {
+      "label": "M-60",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M-60",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_e6df085a3c8611a6": {
+      "label": "M1043 HMMWV Armament",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M1043 HMMWV Armament",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_3107f1d70e7b323c": {
+      "label": "M1045 HMMWV TOW",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M1045 HMMWV TOW",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6cc77e06908c54e1": {
+      "label": "M1097 Avenger",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M1097 Avenger",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_a36a04946c3478e1": {
+      "label": "M10_GMC",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M10_GMC",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_7256b1343b483500": {
+      "label": "M1126 Stryker ICV",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M1126 Stryker ICV",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_ba7ecd64eb878608": {
+      "label": "M1128 Stryker MGS",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M1128 Stryker MGS",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_a591d4911fe83351": {
+      "label": "M1134 Stryker ATGM",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M1134 Stryker ATGM",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_16df402700befab6": {
+      "label": "M12_GMC",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M12_GMC",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_8508faa5e7b595e2": {
+      "label": "M1_37mm",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M1_37mm",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_0aa0a2323af22ca8": {
+      "label": "M1A2C_SEP_V3",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M1A2C_SEP_V3",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_81b8cb8752df40c8": {
+      "label": "M2A1_halftrack",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M2A1_halftrack",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_bdc553df6ccc24b9": {
+      "label": "M30_CC",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M30_CC",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_3dbcda751cfdc4c5": {
+      "label": "M45_Quadmount",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M45_Quadmount",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_9eca04e0c50edfeb": {
+      "label": "M48 Chaparral",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M48 Chaparral",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_3cd905eedacd9190": {
+      "label": "M4_Tractor",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M4_Tractor",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_b1be76c9a580ebb1": {
+      "label": "M6 Linebacker",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M6 Linebacker",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_395fb1d2d1f8bf7c": {
+      "label": "M8_Greyhound",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M8_Greyhound",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_5bde298f25a34ea5": {
+      "label": "M978 HEMTT Tanker",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "M978 HEMTT Tanker",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_db27963c517ede5b": {
+      "label": "MaxxPro_MRAP",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "MaxxPro_MRAP",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6adbef9143e44024": {
+      "label": "MLRS",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "MLRS",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_58876e5a788e8698": {
+      "label": "MLRS FDDM",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "MLRS FDDM",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_f4b16f049f742059": {
+      "label": "NASAMS_Command_Post",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "NASAMS_Command_Post",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_921df5a87a96e0f7": {
+      "label": "NASAMS_LN_B",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "NASAMS_LN_B",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_109b4538d02f37ac": {
+      "label": "NASAMS_LN_C",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "NASAMS_LN_C",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_263ab236f2a0bd14": {
+      "label": "NASAMS_Radar_MPQ64F1",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "NASAMS_Radar_MPQ64F1",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_ac00239565d28ef0": {
+      "label": "Patriot AMG",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Patriot AMG",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_95fcad6260b45082": {
+      "label": "Patriot cp",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Patriot cp",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_cdfa22d0ccaa4e89": {
+      "label": "Patriot ECS",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Patriot ECS",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_53e549d69e9b56c7": {
+      "label": "Patriot EPP",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Patriot EPP",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_bb4b526b86bbf299": {
+      "label": "Patriot ln",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Patriot ln",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_f6aa551b3b8cc70a": {
+      "label": "Patriot str",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Patriot str",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_5455452613566059": {
+      "label": "Predator GCS",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Predator GCS",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_e09ef58ab8519acb": {
+      "label": "Predator TrojanSpirit",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Predator TrojanSpirit",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_7938b3ffcba5b5d6": {
+      "label": "rapier_fsa_blindfire_radar",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "rapier_fsa_blindfire_radar",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_17c52cdaadbf7ebd": {
+      "label": "rapier_fsa_launcher",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "rapier_fsa_launcher",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_1ee706af6475bf6c": {
+      "label": "rapier_fsa_optical_tracker_unit",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "rapier_fsa_optical_tracker_unit",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_0063a9eca59d9dc7": {
+      "label": "Roland ADS",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Roland ADS",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_cffd43bff74bd955": {
+      "label": "Roland Radar",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Roland Radar",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_9e4ba66848ee83f7": {
+      "label": "Soldier M249",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Soldier M249",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_87ba1b628e4bb646": {
+      "label": "Soldier M4",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Soldier M4",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_c1def384d31455d4": {
+      "label": "Soldier stinger",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Soldier stinger",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_51d95c23a42fa789": {
+      "label": "Stinger comm",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Stinger comm",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_bb68fe1a7bf5ae52": {
+      "label": "Tankcartrinity",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Tankcartrinity",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_edf0d36e0a02c5bd": {
+      "label": "TPZ",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "TPZ",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6ba32b71f80de30c": {
+      "label": "tt_B8M1",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "tt_B8M1",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_a2ac53a9e5e76d12": {
+      "label": "tt_DSHK",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "tt_DSHK",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_03c7c36c771d890e": {
+      "label": "tt_KORD",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "tt_KORD",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6fb43d3026e4b526": {
+      "label": "tt_ZU-23",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "tt_ZU-23",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_f076837ee177e77f": {
+      "label": "US Carrier Technician",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "US Carrier Technician",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_862d305854882294": {
+      "label": "US Carrier Technician Static Brown",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "US Carrier Technician Static Brown",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_7b4e6fd29fa12781": {
+      "label": "US Carrier Technician Static Green",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "US Carrier Technician Static Green",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_80032da6c1d8a23d": {
+      "label": "US Carrier Technician Static Purple",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "US Carrier Technician Static Purple",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_db0c1e78b72479da": {
+      "label": "US Carrier Technician Static Red",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "US Carrier Technician Static Red",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_45fed7128e89111c": {
+      "label": "US Carrier Technician Static White",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "US Carrier Technician Static White",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6d4cd323b55b56d3": {
+      "label": "US Carrier Technician Static Yellow",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "US Carrier Technician Static Yellow",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_31664dec712c0836": {
+      "label": "Vulcan",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Vulcan",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_ce44f02048e88eff": {
+      "label": "Wellcarnsc",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Wellcarnsc",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_50b97a57264f25a3": {
+      "label": "Willys_MB",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Willys_MB",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    }
+  },
+  "red": {
+    "unit_33bff63eff7e6c56": {
+      "label": "1L13 EWR",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "1L13 EWR",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_da799c995c02eedc": {
+      "label": "2B11 mortar",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "2B11 mortar",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_b1f0d00b519d332a": {
+      "label": "2S6 Tunguska",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "2S6 Tunguska",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_95c9a188ecee29f6": {
+      "label": "55G6 EWR",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "55G6 EWR",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_3b854a3677da9b79": {
+      "label": "5p73 s-125 ln",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "5p73 s-125 ln",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_486340e9cc0f04a0": {
+      "label": "AA8",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "AA8",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_e7afe8186c4da539": {
+      "label": "ATMZ-5",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ATMZ-5",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_db6dd9663a3c1176": {
+      "label": "ATZ-10",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ATZ-10",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_09c2a399ac4630f8": {
+      "label": "ATZ-5",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ATZ-5",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_cb73d693cdecd9c2": {
+      "label": "ATZ-60_Maz",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ATZ-60_Maz",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_96d2ff436712ae14": {
+      "label": "ATZ-60_TANK",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ATZ-60_TANK",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_99ddbca9a35e30ac": {
+      "label": "BMD-1",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "BMD-1",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_ec9b7625a9c11ce3": {
+      "label": "BMP-1",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "BMP-1",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_bd41e9b0b69f5b4f": {
+      "label": "BMP-2",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "BMP-2",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_4a63929408238de2": {
+      "label": "BMP-3",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "BMP-3",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_edcec38b27595081": {
+      "label": "BRDM-2",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "BRDM-2",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_0fcc2958259a400d": {
+      "label": "BTR-80",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "BTR-80",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_9d166dd4f0c9f64c": {
+      "label": "BTR-82A",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "BTR-82A",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_172feb5d55d5746a": {
+      "label": "BTR_D",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "BTR_D",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_924571abde805ccb": {
+      "label": "Coach a passenger",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Coach a passenger",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_048ffceadc5bc27d": {
+      "label": "Coach a platform",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Coach a platform",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_5f56b68b3dd75052": {
+      "label": "Coach a tank blue",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Coach a tank blue",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_e6fb391ae87b19ad": {
+      "label": "Coach a tank yellow",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Coach a tank yellow",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_62e8bb8649b4aca4": {
+      "label": "Coach cargo",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Coach cargo",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_7c88dd9cfbd14c4a": {
+      "label": "Coach cargo open",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Coach cargo open",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_7a792b24198f4646": {
+      "label": "Dog Ear radar",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Dog Ear radar",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_a2db650ee9ecac8c": {
+      "label": "Electric locomotive",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Electric locomotive",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_2510c9fabbed3356": {
+      "label": "GAZ-3307",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "GAZ-3307",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_21ad32a6ae43f0a6": {
+      "label": "GAZ-3308",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "GAZ-3308",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_80ca7bb4237510df": {
+      "label": "GAZ-66",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "GAZ-66",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_7a4604a5e03de420": {
+      "label": "generator_5i57",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "generator_5i57",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_be714c172940045b": {
+      "label": "Grad-URAL",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Grad-URAL",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_b48dd85cdbf9f7ac": {
+      "label": "Grad_FDDM",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Grad_FDDM",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_94acfff7460793c2": {
+      "label": "HL_B8M1",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "HL_B8M1",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_d941d429f3e24665": {
+      "label": "HL_DSHK",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "HL_DSHK",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_1d6d026fbfd6e109": {
+      "label": "HL_KORD",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "HL_KORD",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_f4205a30e44bdb1c": {
+      "label": "HL_ZU-23",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "HL_ZU-23",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_c21d126ad128c69d": {
+      "label": "IKARUS Bus",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "IKARUS Bus",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_dc88ceb471481e8a": {
+      "label": "Infantry AK",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Infantry AK",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_f5ed2276c97e8e4c": {
+      "label": "Infantry AK ver2",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Infantry AK ver2",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_b661d27f82bdb4ef": {
+      "label": "Infantry AK ver3",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Infantry AK ver3",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_f2e7de84fe00fa06": {
+      "label": "KAMAZ Truck",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "KAMAZ Truck",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_451c09f085c8afd3": {
+      "label": "KS-19",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "KS-19",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_d76a154bbc56af3d": {
+      "label": "Kub 1S91 str",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Kub 1S91 str",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_4c9103c7e4e55687": {
+      "label": "Kub 2P25 ln",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Kub 2P25 ln",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_0dff51d3922d8ac9": {
+      "label": "LAZ Bus",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "LAZ Bus",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_7c2f7780cc463828": {
+      "label": "LiAZ Bus",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "LiAZ Bus",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_610e7ad505ecd1d0": {
+      "label": "Locomotive",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Locomotive",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6f848b58b0ca63e2": {
+      "label": "MAZ-6303",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "MAZ-6303",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_965cf05a22c2ef3a": {
+      "label": "MTLB",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "MTLB",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_a4ada8076d68754d": {
+      "label": "Osa 9A33 ln",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Osa 9A33 ln",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_abca9bf5db4d21c9": {
+      "label": "p-19 s-125 sr",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "p-19 s-125 sr",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_857abce68ae1d66c": {
+      "label": "Paratrooper AKS-74",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Paratrooper AKS-74",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_5433f630d46db92a": {
+      "label": "Paratrooper RPG-16",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Paratrooper RPG-16",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_16e85a076782269e": {
+      "label": "PT_76",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "PT_76",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_b597db570e8382ef": {
+      "label": "RLS_19J6",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "RLS_19J6",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_42924636938f3c3c": {
+      "label": "RPC_5N62V",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "RPC_5N62V",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_c2bd5bc5423cbff6": {
+      "label": "S-200_Launcher",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S-200_Launcher",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6b1e5c45775acba7": {
+      "label": "S-300PS 40B6M tr",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S-300PS 40B6M tr",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_cf635fac66d64cb9": {
+      "label": "S-300PS 40B6MD sr",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S-300PS 40B6MD sr",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_f9cb5e148018966c": {
+      "label": "S-300PS 40B6MD sr_19J6",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S-300PS 40B6MD sr_19J6",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_5508bc4fa97ea1ce": {
+      "label": "S-300PS 54K6 cp",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S-300PS 54K6 cp",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_cf161ce11a33da02": {
+      "label": "S-300PS 5H63C 30H6_tr",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S-300PS 5H63C 30H6_tr",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_ce93f542cebbad68": {
+      "label": "S-300PS 5P85C ln",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S-300PS 5P85C ln",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_c3b7d55530c63673": {
+      "label": "S-300PS 5P85D ln",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S-300PS 5P85D ln",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_2bc0b561138e805c": {
+      "label": "S-300PS 64H6E sr",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S-300PS 64H6E sr",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_a8b1a7c02831b341": {
+      "label": "S-60_Type59_Artillery",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S-60_Type59_Artillery",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_5041f4d9fcdaee79": {
+      "label": "S_75_ZIL",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S_75_ZIL",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_70eeeca3100edceb": {
+      "label": "S_75_Zil_Trailer",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S_75_Zil_Trailer",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_77b0b37929de0f15": {
+      "label": "S_75M_Volhov",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "S_75M_Volhov",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_ce58ba752d6139bb": {
+      "label": "SA-11 Buk CC 9S470M1",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SA-11 Buk CC 9S470M1",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_831287835932f730": {
+      "label": "SA-11 Buk LN 9A310M1",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SA-11 Buk LN 9A310M1",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_69be629d4a258d0c": {
+      "label": "SA-11 Buk SR 9S18M1",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SA-11 Buk SR 9S18M1",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_c3b5fa916e1dac67": {
+      "label": "SA-18 Igla comm",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SA-18 Igla comm",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_0600c84f3a59dd01": {
+      "label": "SA-18 Igla manpad",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SA-18 Igla manpad",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_212803d2f85cdea8": {
+      "label": "SA-18 Igla-S comm",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SA-18 Igla-S comm",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_41a21ff7eb43ddf4": {
+      "label": "SA-18 Igla-S manpad",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SA-18 Igla-S manpad",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6bf0579b6f609dc3": {
+      "label": "SAU 2-C9",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SAU 2-C9",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_fc4318534df93af8": {
+      "label": "SAU Akatsia",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SAU Akatsia",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_218efb7141a9ad06": {
+      "label": "SAU Gvozdika",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SAU Gvozdika",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_a7edccf15225c453": {
+      "label": "SAU Msta",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SAU Msta",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_0bcc679c9bbb7297": {
+      "label": "Scud_B",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Scud_B",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_2b6975a232f3f269": {
+      "label": "SKP-11",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SKP-11",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_61b228ff9a52a353": {
+      "label": "Smerch",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Smerch",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_283a84c208e156b0": {
+      "label": "Smerch_HE",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Smerch_HE",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_47cc5c17b3458683": {
+      "label": "snr s-125 tr",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "snr s-125 tr",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_fe4b56b93e1c75a6": {
+      "label": "SNR_75V",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SNR_75V",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_d52915e7b491637d": {
+      "label": "SON_9",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "SON_9",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_c42bd0f7025eacc7": {
+      "label": "Strela-1 9P31",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Strela-1 9P31",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_3e57eeb61d6664dc": {
+      "label": "Strela-10M3",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Strela-10M3",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_b608520d1c29067b": {
+      "label": "T-55",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "T-55",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_1404f28c7b0b5106": {
+      "label": "T-72B",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "T-72B",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_8e2405bceda1b655": {
+      "label": "T-72B3",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "T-72B3",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_28073947d3727710": {
+      "label": "T-80UD",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "T-80UD",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_1b2814fee088530e": {
+      "label": "T-90",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "T-90",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_9041ccc41723dbc9": {
+      "label": "Technician",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Technician",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_8194de90ed254b73": {
+      "label": "Tigr_233036",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Tigr_233036",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_df8f12d1635af4a8": {
+      "label": "Tor 9A331",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Tor 9A331",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_f008ee8d9dac69e8": {
+      "label": "Trolley bus",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Trolley bus",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6ba32b71f80de30c": {
+      "label": "tt_B8M1",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "tt_B8M1",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_a2ac53a9e5e76d12": {
+      "label": "tt_DSHK",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "tt_DSHK",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_03c7c36c771d890e": {
+      "label": "tt_KORD",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "tt_KORD",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6fb43d3026e4b526": {
+      "label": "tt_ZU-23",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "tt_ZU-23",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_550060126a05d083": {
+      "label": "TZ-22_KrAZ",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "TZ-22_KrAZ",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_3151a1719f85e086": {
+      "label": "TZ-22_TANK",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "TZ-22_TANK",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_aad4bc6a9e5d5c57": {
+      "label": "UAZ-469",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "UAZ-469",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_4ec87157a1c88686": {
+      "label": "Uragan_BM-27",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Uragan_BM-27",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_708de6a0012f3525": {
+      "label": "Ural ATsP-6",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Ural ATsP-6",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6c9509ce4f0fa1cd": {
+      "label": "Ural-375",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Ural-375",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_8c412ef9d4b88cd7": {
+      "label": "Ural-375 PBU",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Ural-375 PBU",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_5468fc8694025f0c": {
+      "label": "Ural-375 ZU-23",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Ural-375 ZU-23",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_4387d30fa9149678": {
+      "label": "Ural-4320 APA-5D",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Ural-4320 APA-5D",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_d3f1c776992da821": {
+      "label": "Ural-4320-31",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Ural-4320-31",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_e175955301a599cd": {
+      "label": "Ural-4320T",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "Ural-4320T",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_7267ab3526687fbe": {
+      "label": "VAZ Car",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "VAZ Car",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_6cceeb24498255c6": {
+      "label": "ZiL-131 APA-80",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ZiL-131 APA-80",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_e9b1299ddf7ffa79": {
+      "label": "ZIL-131 KUNG",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ZIL-131 KUNG",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_ea40e0009f9f60ae": {
+      "label": "ZIL-135",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ZIL-135",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_de0bfda11f48e219": {
+      "label": "ZIL-4331",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ZIL-4331",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_4e2e934647c2e3fc": {
+      "label": "ZSU-23-4 Shilka",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ZSU-23-4 Shilka",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_4dae661e0d2ceb39": {
+      "label": "ZU-23 Emplacement",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ZU-23 Emplacement",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    },
+    "unit_a48fbe3cb6c60b4f": {
+      "label": "ZU-23 Emplacement Closed",
+      "kind": "unit",
+      "units": [
+        {
+          "type": "ZU-23 Emplacement Closed",
+          "dx": 0,
+          "dy": 0
+        }
+      ]
+    }
+  }
+}

@@ -30,6 +30,32 @@ local function mission_call(id, expression)
     return value
 end
 
+-- Convert JSON data into a bounded Lua table literal. No request text is ever
+-- inserted as code. Future structured orders can pass through this hook.
+local function literal(value, depth, budget)
+    budget.count = budget.count + 1
+    if budget.count > 256 or depth > 6 then error('REQUEST_COMPLEXITY') end
+    local kind = type(value)
+    if kind == 'string' then
+        if #value > 2048 then error('STRING_TOO_LONG') end
+        return string.format('%q', value)
+    end
+    if kind == 'number' then
+        if value ~= value or value == math.huge or value == -math.huge then error('INVALID_NUMBER') end
+        return string.format('%.17g', value)
+    end
+    if kind == 'boolean' then return tostring(value) end
+    if kind ~= 'table' then error('INVALID_VALUE') end
+    local parts = {}
+    for key, item in pairs(value) do
+        if (type(key) ~= 'string' and type(key) ~= 'number')
+            or (type(key) == 'string' and #key > 64) then error('INVALID_KEY') end
+        parts[#parts + 1] = '[' .. literal(key, depth + 1, budget) .. ']='
+            .. literal(item, depth + 1, budget)
+    end
+    return '{' .. table.concat(parts, ',') .. '}'
+end
+
 local function handle(line)
     local parsed, request = pcall(net.json2lua, line)
     if not parsed or type(request) ~= 'table' then return error_reply('', 'INVALID_JSON') end
@@ -38,35 +64,14 @@ local function handle(line)
         return error_reply('', 'INVALID_ID')
     end
     if request.v ~= 1 then return error_reply(id, 'UNSUPPORTED_VERSION') end
+    if type(request.op) ~= 'string' or #request.op < 1 or #request.op > 32
+        or not request.op:match('^[%w_]+$') then return error_reply(id, 'INVALID_OP') end
     if request.op == 'ping' then
         return '{"v":1,"id":"' .. id .. '","ok":true,"result":"pong"}'
     end
-    if request.op == 'status' then
-        return mission_call(id, 'FoWBridge.status(' .. string.format('%q', id) .. ')')
-    end
-    if request.op ~= 'move' and request.op ~= 'move_geo' and request.op ~= 'hold' then
-        return error_reply(id, 'UNKNOWN_COMMAND')
-    end
-    local name = request.group
-    if type(name) ~= 'string' or #name < 1 or #name > 128 then
-        return error_reply(id, 'INVALID_GROUP')
-    end
-    local expression = 'FoWBridge.command(' .. string.format('%q', id) .. ','
-        .. string.format('%q', request.op) .. ',' .. string.format('%q', name)
-    if request.op == 'move' or request.op == 'move_geo' then
-        local x, z = request.x, request.z
-        local limit_x, limit_z = 10000000, 10000000
-        if request.op == 'move_geo' then
-            x, z = request.lat, request.lon
-            limit_x, limit_z = 90, 180
-        end
-        if type(x) ~= 'number' or type(z) ~= 'number' or x ~= x or z ~= z
-            or math.abs(x) > limit_x or math.abs(z) > limit_z then
-            return error_reply(id, 'INVALID_DESTINATION')
-        end
-        expression = expression .. ',' .. string.format('%.3f', x) .. ',' .. string.format('%.3f', z)
-    end
-    return mission_call(id, expression .. ')')
+    local safe, encoded = pcall(literal, request, 0, {count = 0})
+    if not safe then return error_reply(id, 'INVALID_REQUEST_DATA') end
+    return mission_call(id, 'FoWBridge.handle(' .. encoded .. ')')
 end
 
 local function frame()

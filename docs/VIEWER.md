@@ -1,33 +1,42 @@
-# Local mission viewer
+# Manual commander prototype
 
-Status: viewer implemented; right-click move awaits a DCS process and mission restart with the updated hook and `fow.miz`.
+The local FoW server polls the DCS bridge every 10 seconds and serves a map at `http://127.0.0.1:8765/`. It records manual orders, observed units, and sampled group positions in `data/fow.sqlite3` (ignored by Git). The database survives a FoW server restart within the same DCS mission run. On mission reload or DCS restart, the next status response clears old orders, tracks, aliases, ROE, and observed units. `scripts/fow-viewer.py` remains as a compatibility launcher; prefer `./scripts/fow-server.py`.
 
-The viewer is a small Python HTTP server. It asks the FoW/DCS JSON bridge for a snapshot every 10 seconds and serves the latest result to a browser. Browser refreshes read a cache, so opening another tab does not increase DCS polling. Selecting an active ground group and right-clicking the map offers a confirmed move order. It binds to `127.0.0.1:8765` by default; the bridge remains on `127.0.0.1:10309`.
+## Start and test
 
-## Start
-
-Build and deploy the current mission if needed:
+Refresh the menu from the installed DCS country database, then build and deploy:
 
 ```bash
+./scripts/refresh-unit-catalog.py
 ./scripts/build-mission.sh
 ./scripts/dcs.sh missions
 ./scripts/dcs.sh bridge
 ```
 
-Fully restart the DCS process to load the updated hook, then select/restart `fow.miz` in the DCS WebGUI and unpause it. Then run:
+The hook needs a **DCS process restart**. Then load or restart `fow.miz` in the DCS dashboard. Start the FoW server:
 
 ```bash
-./scripts/fow-viewer.py
+./scripts/fow-server.py
 ```
 
-Open `http://127.0.0.1:8765/` on the Ubuntu host. To view from a Windows machine, use an SSH tunnel such as `ssh -L 8765:127.0.0.1:8765 USER@UBUNTU_HOST`, then open the same address in a browser on Windows. Stop the viewer with Ctrl+C. Python 3 and the existing FoW bridge are the only server-side dependencies.
+Open `http://127.0.0.1:8765/` on Ubuntu. From Windows, tunnel it with `ssh -L 8765:127.0.0.1:8765 USER@UBUNTU_HOST`, then open the same URL on Windows. Stop the FoW server with Ctrl+C. It needs Python 3 and the existing local bridge, with no Python package installation.
 
-## What it shows
+1. Choose **Blue commander**. On **Orders**, left-click `FoW Blue Ground` on the map or in Groups. Right-click a nearby land point, review the staged line, then click **Send order to DCS**. The order should appear in the history and its target as a dashed line. Later observed movement appears as a solid line.
+2. With a ground group selected, choose **Hold position** to cancel movement or **Set fire permission** for Open Fire, Return Fire, or Weapon Hold. These do not need a map point.
+3. Click an existing group, edit **Display name**, and save it. This changes only its name in the FoW viewer. DCS retains its original group identifier for orders.
+4. On **Spawn**, choose **Ground group or vehicle**, stage a land point within 50 km of a friendly ground group, and search or choose a curated group or installed unit. Some single units are components that need other units to function; use the curated site for a working SAM test. Leave **New group name** empty for a descriptive DCS name, or enter your own. A duplicate DCS name is rejected. The mission attempts to set new groups to Open Fire and reports the result. A complete Hawk site shows an approximate 45 km circle.
+5. Switch to **Red commander**. Its response contains Red groups and Red orders only. Enemy contacts are currently empty because DCS detection reports are not wired in. **Admin** shows raw DCS truth for debugging.
+6. On **Spawn**, choose **AI aircraft**, then right-click a point 5–150 km from Batumi or Gudauta respectively. Select the aircraft preset and click **Spawn at staged point**. The preset is one unarmed aircraft at 5 km altitude with that point as its waypoint. A Blue Hornet was observed turning toward the selected point in DCS; the Red preset was seen heading toward landing.
+7. On **Orders**, left-click an aircraft marker or group, then right-click a point 2–300 km from it. The available order is **Fly to staged point**; choose an altitude in metres MSL and click **Send order to DCS**. This replaces its current route. Player-controlled aircraft cannot be redirected. A live Blue Hornet test confirmed a turn after redirect; altitude changes still need a live test. The dashed line shows FoW's latest requested point; the solid line is the observed track. DCS's internal route is not read back.
 
-The map plots every active unit and static object returned by `status` using coordinates converted by DCS from its local `x/z` coordinates to latitude/longitude. Group markers use simple Blue, Red and Neutral military-style frames with category icons; they are not certified APP-6 symbols. The sidebar lists active groups and lets you center on one. The viewer retains the last snapshot and shows a stale warning if DCS stops responding.
+Map markers show the DCS unit type, such as `M1A2C`. The sidebar has **Orders**, **Spawn**, and **Groups** tabs; the Groups tab contains the list, recent orders, and raw status. Clicking a group takes you to its Orders tab. Fields change with the selected group or spawn type. Only ground and airplane navigation commands are implemented so far. Helicopters, ships, combat roles, and logistics orders need separate DCS command support.
 
-To test movement, click the Blue ground group in the sidebar (or its map marker), right-click a nearby land point, and confirm **Send move order**. The viewer sends `move_geo`; DCS converts the clicked latitude/longitude to local mission coordinates and checks the land surface and 50 km range. The response acknowledges task acceptance, and later position refreshes show whether the unit moved. A rejected order is shown in the sidebar. The viewer refuses to send while its snapshot is stale.
+If an order times out, its state is `unknown`: DCS may have applied it. Check a fresh status before resending. A missing unit means it was absent from a snapshot; this is not a confirmed casualty. Each mission reload or DCS restart begins a fresh ledger with no prior orders or tracks.
 
-The browser loads Leaflet 1.9.4 and [OpenStreetMap Standard tiles](https://operations.osmfoundation.org/policies/tiles/) over the internet. OSM attribution is displayed on the map. Tiles are fetched only for the visible viewport; normal browser caching applies. DCS Caucasus roads, buildings and coastline may differ from the real-world OSM map. This prototype is for seeing positions and movement, not for precise route planning. A later version could use licensed DCS-aligned tiles or a self-hosted map layer.
+## Current boundaries
 
-The viewer displays the raw, omniscient bridge state and can send test orders. Keep it local while fog-of-war filtering and login are not implemented. The 10-second poll is a trial setting, not a planned final simulation cadence. It can be changed with `--interval`.
+This is a local single-user prototype. The side selector is **not authentication**: anyone who can reach the local HTTP API can ask for Admin truth or choose either side. Keep the bind address at `127.0.0.1`; the SSH tunnel above is for personal access. Add login and server-enforced roles before exposing it or using it for competitive play.
+
+The map uses Leaflet and OpenStreetMap Standard raster tiles. Place names in those tiles are baked in and cannot be switched to English client-side. We will test a vector basemap with English name fields after the manual command loop is stable. DCS terrain may differ from real-world OSM roads and coastline, so a map click is approximate. The dashed SAM circles are reference weapon ranges, not actual coverage. The 10-second poll is a test cadence, not a final simulation rate.
+
+See [manual commander design](MANUAL_COMMANDER.md) for the command catalog and next data work.
