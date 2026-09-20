@@ -16,8 +16,8 @@ def client(group: dcs.unitgroup.FlyingGroup, name: str) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) not in (2, 3) or (len(sys.argv) == 3 and sys.argv[2] != "--candidate"):
-        raise SystemExit("Usage: python build_mission.py OUTPUT.miz [--candidate]")
+    if len(sys.argv) != 2:
+        raise SystemExit("Usage: python build_mission.py OUTPUT.miz")
 
     output = Path(sys.argv[1])
     mission = dcs.Mission()
@@ -28,8 +28,6 @@ def main() -> None:
     batumi.set_blue()
     hornet = dcs.planes.FA_18C_hornet
     mission.init_script = Path(__file__).with_name("fow_bridge.lua").read_text()
-    if len(sys.argv) == 3:
-        mission.init_script += "\n" + Path(__file__).with_name("fow_move_candidate.lua").read_text()
 
     client(
         mission.flight_group_inflight(
@@ -72,8 +70,7 @@ def main() -> None:
         "FoW Hornet Ramp",
     )
 
-    # One harmless vehicle per side, far apart. The bridge's first AI command
-    # is Hold; later movement tests can use checked roads and named zones.
+    # One harmless vehicle per side, far apart. Test orders use these groups.
     gudauta = mission.terrain.airports["Gudauta"]
     mission.vehicle_group(
         country=usa,

@@ -20,10 +20,7 @@ Usage: ./scripts/dcs.sh <command>
   status    Show container status
   logs      Follow recent container logs (Ctrl+C to exit)
   missions  Copy the repo FoW mission into DCS Saved Games
-  bridge    Install the FoW Saved Games hook and create its command directory
-  mission-move-test  Deploy the isolated move-test mission beside fow.miz
-  bridge-move-test   Install the move-test hook (bridge restores the baseline)
-  bridge-socket-test Install the socket candidate hook (bridge restores the baseline)
+  bridge    Install the FoW Saved Games socket hook
   config    Prepare configuration and validate Compose without starting
   help      Show this help
 EOF
@@ -146,9 +143,9 @@ deploy_hook() {
   local hooks="$saved_games/Scripts/Hooks"
   local source="$1"
   local destination="$hooks/fow_hook.lua"
-  mkdir -p "$hooks" "$saved_games/FoW"
-  if [[ ! -w "$hooks" || ! -w "$saved_games/FoW" ]]; then
-    echo "DCS Saved Games bridge directories are not writable." >&2
+  mkdir -p "$hooks"
+  if [[ ! -w "$hooks" ]]; then
+    echo "DCS Saved Games Hooks directory is not writable." >&2
     exit 1
   fi
   if [[ -f "$destination" ]] && cmp -s "$source" "$destination"; then
@@ -158,30 +155,6 @@ deploy_hook() {
     echo "Deployed: $destination"
   fi
   echo "Restart the DCS process to load a newly installed hook."
-}
-
-deploy_move_test_mission() {
-  require_data_disk
-  local source="$mission_source/.fow-move-candidate.miz"
-  local destination="$mission_target/fow-move-candidate.miz"
-  if [[ ! -f "$source" ]]; then
-    echo "Build the candidate first: ./scripts/build-mission.sh --candidate" >&2
-    exit 1
-  fi
-  mkdir -p "$mission_target"
-  if [[ ! -w "$mission_target" ]]; then
-    echo "$mission_target is not writable by $(id -un)." >&2
-    exit 1
-  fi
-  if [[ -f "$destination" ]] && cmp -s "$source" "$destination"; then
-    echo "Already current: fow-move-candidate.miz"
-    return
-  fi
-  local temporary
-  temporary="$(mktemp "$mission_target/.fow-move.XXXXXX")"
-  install -m 644 "$source" "$temporary"
-  mv -f "$temporary" "$destination"
-  echo "Deployed: $destination"
 }
 
 command="${1:-help}"
@@ -209,15 +182,6 @@ case "$command" in
     ;;
   bridge)
     deploy_bridge
-    ;;
-  mission-move-test)
-    deploy_move_test_mission
-    ;;
-  bridge-move-test)
-    deploy_hook "$repo_dir/bridge/fow_hook_move.lua"
-    ;;
-  bridge-socket-test)
-    deploy_hook "$repo_dir/bridge/fow_hook_socket.lua"
     ;;
   stop)
     require_docker

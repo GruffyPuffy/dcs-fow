@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""Inspect and exercise the local FoW/DCS JSON socket bridge."""
+
+import argparse
+import json
+import socket
+import sys
+import uuid
+
+
+def exchange(host: str, port: int, operation: str, **fields: object) -> dict:
+    request = {"v": 1, "id": uuid.uuid4().hex, "op": operation, **fields}
+    payload = (json.dumps(request, separators=(",", ":")) + "\n").encode("utf-8")
+    with socket.create_connection((host, port), timeout=5) as connection:
+        connection.settimeout(5)
+        connection.sendall(payload)
+        with connection.makefile("rb") as stream:
+            line = stream.readline(2 * 1024 * 1024 + 1)
+    if not line.endswith(b"\n") or len(line) > 2 * 1024 * 1024:
+        raise RuntimeError("No complete response from DCS hook")
+    reply = json.loads(line)
+    if not isinstance(reply, dict) or reply.get("v") != 1 or reply.get("id") != request["id"]:
+        raise RuntimeError("Unexpected response ID or protocol version")
+    return reply
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=10309)
+    commands = parser.add_subparsers(dest="operation", required=True)
+    commands.add_parser("ping")
+    commands.add_parser("status")
+    test = commands.add_parser("move-test", help="Move Blue ground group 150 m northeast")
+    test.add_argument("--group", default="FoW Blue Ground")
+    move = commands.add_parser("move", help="Move a ground group to DCS x/z coordinates")
+    move.add_argument("group")
+    move.add_argument("x", type=float)
+    move.add_argument("z", type=float)
+    hold = commands.add_parser("hold")
+    hold.add_argument("group")
+    args = parser.parse_args()
+
+    fields = {}
+    operation = args.operation
+    if operation == "move-test":
+        snapshot = exchange(args.host, args.port, "status")
+        if not snapshot.get("ok"):
+            raise SystemExit(json.dumps(snapshot, indent=2))
+        matching = [g for g in snapshot["groups"] if g["name"] == args.group and g["units"]]
+        if len(matching) != 1:
+            raise SystemExit(f"Expected one active group named {args.group!r}")
+        point = matching[0]["units"][0]
+        fields = {"group": args.group, "x": point["x"] + 150, "z": point["z"] + 150}
+        operation = "move"
+    elif operation == "move":
+        fields = {"group": args.group, "x": args.x, "z": args.z}
+    elif operation == "hold":
+        fields = {"group": args.group}
+
+    reply = exchange(args.host, args.port, operation, **fields)
+    print(json.dumps(reply, indent=2, ensure_ascii=False))
+    if not reply.get("ok"):
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"FoW bridge error: {error}", file=sys.stderr)
+        raise SystemExit(1) from None

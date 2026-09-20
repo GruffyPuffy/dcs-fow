@@ -23,4 +23,8 @@ Lua callbacks should do bounded work and never wait for inference or blocking ne
 
 The exact bridge transport remains undecided. Prove snapshot export and one accepted order on a live server, then test invalid input, disconnects, restart and whether normal multiplayer clients remain unaffected. Measure callback duration and simulation impact as the number of groups grows. Document DCS API behavior on the selected build. Command IDs, mission IDs and expiry times should prevent replay of stale orders.
 
+## Trial update (2026-09-20)
+
+A Saved Games hook using a localhost socket returned live state and accepted one ground movement command on DCS 2.9.29.27468. The Blue group reached its test destination. The consolidated [JSON bridge](../BRIDGE.md) then returned both active ground groups, accepted a move, and rejected a missing group. The transport choice remains provisional until failure and restart behavior is tested.
+
 DCS itself now uses multiple threads, per [Eagle Dynamics' announcement](https://www.digitalcombatsimulator.com/en/news/2024-09-06/). That does not make mission Lua callbacks asynchronous: the [mission scripting guidance](https://wiki.hoggitworld.com/view/Mission_Scripting_Foundation_Documentation) warns that a slow or hung script can stall the server. The reason to keep Lua thin is its synchronous execution in the simulation path, not a claim that all of DCS is single-threaded.

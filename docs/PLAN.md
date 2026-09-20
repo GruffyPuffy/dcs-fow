@@ -1,6 +1,6 @@
 # Project plan
 
-Status: server baseline proven; candidate socket bridge round trip works. Updated 2026-09-20.
+Status: server baseline and JSON socket round trip proven. Updated 2026-09-20.
 
 ## Intended experience
 
@@ -37,7 +37,7 @@ The proposed loop is: collect authoritative mission state; maintain side-specifi
 | --- | --- | --- |
 | 0. Align | Choose the first map, host and client setup. | **Done for the server trial:** Ubuntu 24.04, Caucasus, F/A-18C Windows client. Broader FoW scope remains open. |
 | 1. Host feasibility | Run [Experiment 0001](experiments/0001-linux-server-client-join.md): host one repo-owned Caucasus mission and join from Windows. | **Working:** server install, auto start, LAN join, air and ground spawn. Resource measurements and reboot test remain useful operational follow-up. |
-| 2. Live bridge | Export group status from mission Lua and pass a fixed command through a Saved Games hook. | **Partial:** [Experiment 0004](experiments/0004-hook-socket.md) returned live state and a move acknowledgement over a localhost socket; Blue reached its target. Still need client-side visual observation, invalid-order, disconnect, restart and larger-state tests. |
+| 2. Live bridge | Export group status from mission Lua and pass a fixed command through a Saved Games hook. | **Partial:** the [JSON bridge](BRIDGE.md) returned both groups, accepted a move, rejected a missing group, and Blue reached its target. Still need reconnect, restart, player-join and larger-state tests. |
 | 3. Deterministic battle | Add fixed zones, objectives, two sides, basic detection filtering, action validation and scripted commanders. | Both sides act independently without an LLM; hidden units remain absent from enemy views. |
 | 4. Local LLM trial | Add separate Red/Blue briefs and structured output behind the same validator. Replay recorded states and compare decisions. | Valid order rate, inference latency, strategic continuity and failure behavior measured on the actual host. |
 | 5. Living mission | Add player interaction, broader orders, reinforcements and persistence only where evidence supports them. | An unattended session evolves coherently; a human can join and affect later decisions. |
