@@ -76,7 +76,8 @@
           <div class="field" id="alias-field" hidden><label for="group-alias">Display name</label><input id="group-alias" maxlength="80"><button id="save-alias" type="button">Save name</button></div>
           <label for="order-op">Order for selected unit</label><select id="order-op"></select>
           <div class="field" id="roe-field"><label for="roe-mode">Fire permission</label><select id="roe-mode"><option value="open_fire">Open fire</option><option value="return_fire">Return fire</option><option value="weapon_hold">Weapon hold</option></select></div>
-          <div class="field" id="altitude-field"><label for="air-altitude">Destination altitude (m MSL)</label><input id="air-altitude" type="number" min="1000" max="12000" step="500" value="5000"></div>
+          <div class="field" id="altitude-field"><label for="air-altitude">Destination altitude (ft MSL)</label><input id="air-altitude" type="number" min="3281" max="39370" step="500" value="16400"></div>
+          <div class="field" id="rtb-field" hidden><label for="rtb-base">Recovery base</label><select id="rtb-base"></select></div>
           <button id="send-order" class="action-button" type="button" disabled>Send order to DCS</button>
         </section>
         <section id="spawn-view" hidden>
@@ -129,6 +130,7 @@
       const spawnName = document.getElementById('spawn-name');
       const spawnButton = document.getElementById('send-spawn');
       const airAltitude = document.getElementById('air-altitude');
+      const rtbBase = document.getElementById('rtb-base');
       const feedback = document.getElementById('order-feedback');
       const selectedText = document.getElementById('selected-unit');
       const ordersView = document.getElementById('orders-view');
@@ -141,6 +143,8 @@
       let targetPoint = null, latestSnapshot = null, latestOrders = [], currentSession = null, aliases = {}, roeState = {};
       const sideName = side => side === 2 ? 'blue' : side === 1 ? 'red' : 'neutral';
       const leadUnit = group => (group?.units || []).reduce((lead, unit) => !lead || unit.id < lead.id ? unit : lead, null);
+      const metresToFeet = metres => metres * 3.28084;
+      const metresPerSecondToKnots = speed => speed * 1.94384;
       let catalog = {}, airCatalog = {};
       function setMode(mode) {
         if (panelMode !== mode) targetPoint = null;
@@ -161,7 +165,7 @@
         const isAir = spawnKind.value === 'air';
         document.getElementById('spawn-search-field').hidden = isAir;
         document.getElementById('spawn-note').textContent = isAir
-          ? 'Unarmed air start near Batumi or Gudauta at 5 km; staged point is the first waypoint (5–150 km from start).'
+          ? 'Unarmed air start near Batumi or Gudauta at the preset altitude; staged point is the first waypoint.'
           : 'Ground spawns need a friendly unit within 50 km. Single SAM components may need a full site.';
         if (isAir) {
           const presets = airCatalog?.presets?.[sideSelect.value] || {};
@@ -187,14 +191,21 @@
         if (previous && Array.from(spawnSelect.options).some(option => option.value === previous)) spawnSelect.value = previous;
         updateDraft();
       }
+      function updateRtbOptions() {
+        const previous = rtbBase.value;
+        const bases = new Set(Object.values(airCatalog?.presets?.[sideSelect.value] || {})
+          .map(preset => preset.default_rtb_base).filter(Boolean));
+        rtbBase.replaceChildren(...Array.from(bases, name => new Option(name, name)));
+        if (bases.has(previous)) rtbBase.value = previous;
+      }
       fetch('/api/catalog').then(r => r.json()).then(value => { catalog = value; updateSpawnOptions(); });
-      fetch('/api/air-catalog').then(r => r.json()).then(value => { airCatalog = value; updateSpawnOptions(); });
+      fetch('/api/air-catalog').then(r => r.json()).then(value => { airCatalog = value; updateSpawnOptions(); updateRtbOptions(); });
       spawnSearch.addEventListener('input', updateSpawnOptions);
       spawnKind.addEventListener('change', updateSpawnOptions);
       ordersTab.addEventListener('click', () => setMode('orders'));
       spawnTab.addEventListener('click', () => setMode('spawn'));
       groupsTab.addEventListener('click', () => setMode('groups'));
-      sideSelect.addEventListener('change', () => { firstFit = true; selectedGroup = null; selectedUnit = null; targetPoint = null; updateSpawnOptions(); refresh(); });
+      sideSelect.addEventListener('change', () => { firstFit = true; selectedGroup = null; selectedUnit = null; targetPoint = null; updateSpawnOptions(); updateRtbOptions(); refresh(); });
       const categoryName = category => ({0:'aircraft',1:'helicopter',2:'ground',3:'ship',4:'train'})[category] || 'group';
       function symbolText(group, unit) {
         return unit.type || categoryName(group.category);
@@ -236,7 +247,7 @@
         const operations = group?.category === 2
           ? [['move','Move to staged point'],['hold','Hold position'],['set_roe','Set fire permission']]
           : group?.category === 0
-          ? [['air_move','Fly to staged point']]
+          ? [['air_move','Fly to staged point'],['patrol','Patrol staged point'],['CAP','CAP staged point'],['rtb','Return to base']]
           : [];
         for (const [value, label] of operations) {
           const option = document.createElement('option');
@@ -251,9 +262,10 @@
       }
 
       function updateDraft() {
-        const needsPoint = orderOp.value === 'move' || orderOp.value === 'air_move';
+        const needsPoint = ['move','air_move','patrol','CAP'].includes(orderOp.value);
         document.getElementById('roe-field').hidden = orderOp.value !== 'set_roe';
-        document.getElementById('altitude-field').hidden = orderOp.value !== 'air_move';
+        document.getElementById('altitude-field').hidden = !['air_move','patrol','CAP'].includes(orderOp.value);
+        document.getElementById('rtb-field').hidden = orderOp.value !== 'rtb';
         targetText.textContent = targetPoint
           ? `Staged point: ${targetPoint.lat.toFixed(5)}°, ${targetPoint.lng.toFixed(5)}°`
           : panelMode === 'spawn' ? 'Right-click the map to stage a spawn point or aircraft waypoint.'
@@ -268,8 +280,13 @@
           if (panelMode === 'orders' && needsPoint && selectedUnit
               && Number.isFinite(selectedUnit.lat) && Number.isFinite(selectedUnit.lon)) {
             const origin = L.latLng(selectedUnit.lat, selectedUnit.lon);
+            const group = (latestSnapshot?.groups || []).find(item => item.name === selectedGroup);
+            const distance = origin.distanceTo(targetPoint);
+            const distanceText = group?.category === 0 || group?.category === 1
+              ? `${(distance / 1852).toFixed(1)} NM`
+              : `${(distance / 1000).toFixed(1)} km`;
             L.polyline([origin,targetPoint], {color:'#f4d37c', dashArray:'5,6', weight:2})
-              .bindTooltip(`${(origin.distanceTo(targetPoint) / 1000).toFixed(1)} km`, {permanent:true, direction:'center'})
+              .bindTooltip(distanceText, {permanent:true, direction:'center'})
               .addTo(draftLayers);
           }
         }
@@ -305,25 +322,36 @@
 
       sendButton.addEventListener('click', async () => {
         if (sendButton.disabled || !selectedGroup) return;
-        const body = {op:orderOp.value, group:selectedGroup, side:sideSelect.value};
+        const selectedOperation = orderOp.value;
+        const body = {op:selectedOperation, group:selectedGroup, side:sideSelect.value};
         if (body.op === 'set_roe') body.mode = roeMode.value;
-        if (body.op === 'move' || body.op === 'air_move') {
+        if (['move','air_move','patrol','CAP'].includes(selectedOperation)) {
           if (!targetPoint) return;
           body.lat = targetPoint.lat;
           body.lon = targetPoint.lng;
         }
-        if (body.op === 'air_move') {
-          const altitude = Number(airAltitude.value);
-          if (!airAltitude.value || !Number.isFinite(altitude) || altitude < 1000 || altitude > 12000) {
-            feedback.textContent = 'Choose an altitude between 1000 and 12000 m MSL.';
+        if (['air_move','patrol','CAP'].includes(selectedOperation)) {
+          const altitudeFeet = Number(airAltitude.value);
+          if (!airAltitude.value || !Number.isFinite(altitudeFeet) || altitudeFeet < 3281 || altitudeFeet > 39370) {
+            feedback.textContent = 'Choose an altitude between 3,281 and 39,370 ft MSL.';
             return;
           }
-          body.altitude_m = altitude;
+          body.altitude_m = altitudeFeet / 3.28084;
+        }
+        let endpoint = '/api/orders';
+        if (selectedOperation === 'patrol' || selectedOperation === 'CAP') {
+          endpoint = '/api/set-mission';
+          body.mission_type = selectedOperation;
+          delete body.op;
+        } else if (selectedOperation === 'rtb') {
+          endpoint = '/api/rtb';
+          body.airbase = rtbBase.value;
+          delete body.op;
         }
         sendButton.disabled = true;
-        feedback.textContent = `Sending ${body.op} for ${body.group}…`;
+        feedback.textContent = `Sending ${selectedOperation} for ${body.group}…`;
         try {
-          const response = await fetch('/api/orders', {
+          const response = await fetch(endpoint, {
             method:'POST', headers:{'Content-Type':'application/json','X-FoW-Viewer':'1'},
             body:JSON.stringify(body)
           });
@@ -381,9 +409,13 @@
         const currentOrders = latestOrders.filter(o => o.session === currentSession);
         const newestForGroup = new Map();
         const newestMovement = new Map();
+        const newestAirSpawn = new Map();
+        const newestAirMission = new Map();
         for (const order of currentOrders) {
           if (!newestForGroup.has(order.group_name)) newestForGroup.set(order.group_name, order);
-          if (['move','hold','air_move','spawn_air'].includes(order.op) && !newestMovement.has(order.group_name)) newestMovement.set(order.group_name, order);
+          if (['move','hold','air_move','spawn_air','set_mission'].includes(order.op) && !newestMovement.has(order.group_name)) newestMovement.set(order.group_name, order);
+          if (order.op === 'spawn_air' && !newestAirSpawn.has(order.group_name)) newestAirSpawn.set(order.group_name, order);
+          if (['spawn_air','set_mission'].includes(order.op) && !newestAirMission.has(order.group_name)) newestAirMission.set(order.group_name, order);
         }
         let unitCount = 0;
         for (const group of snapshot.groups || []) {
@@ -399,17 +431,23 @@
             const icon = L.divIcon({className: '', html: `<div class="symbol ${side}" style="width:${width}px" title="${escapeHtml(label)}"><span>${escapeHtml(label)}</span></div>`, iconSize:[width,30], iconAnchor:[width/2,15]});
             const details = [aliases[group.name] || group.name, `DCS group: ${group.name}`, `${side} ${categoryName(group.category)} · ${unit.type}`];
             if (group.category === 0 || group.category === 1) {
-              details.push(`Altitude: ${Math.round(unit.y)} m MSL`);
-              if (Number.isFinite(unit.speed_mps)) details.push(`Ground speed: ${Math.round(unit.speed_mps * 3.6)} km/h`);
+              details.push(`Altitude: ${Math.round(metresToFeet(unit.y)).toLocaleString()} ft MSL`);
+              if (Number.isFinite(unit.speed_mps)) details.push(`Ground speed: ${Math.round(metresPerSecondToKnots(unit.speed_mps))} kt`);
+              if (Number.isFinite(unit.fuel)) details.push(`Fuel: ${Math.round(unit.fuel * 100)}%`);
               // Add flight plan details for aircraft
-              const spawnOrder = newestForGroup.get(group.name);
-              if (group.category === 0 && spawnOrder?.op === 'spawn_air') {
-                if (spawnOrder.mission_type) details.push(`Mission: ${spawnOrder.mission_type === 'CAP' ? 'CAP' : 'Patrol'}`);
+              const spawnOrder = newestAirSpawn.get(group.name);
+              const missionOrder = newestAirMission.get(group.name);
+              if (group.category === 0 && spawnOrder) {
+                if (missionOrder?.mission_type) details.push(`Mission: ${missionOrder.mission_type === 'CAP' ? 'CAP' : 'Patrol'}`);
                 if (spawnOrder.loadout) details.push(`Loadout: ${spawnOrder.loadout}`);
                 if (spawnOrder.rtb_base) details.push(`RTB base: ${spawnOrder.rtb_base}`);
               }
             }
-            if (group.category === 2) details.push(`FoW-known ROE: ${(roeState[group.name] || 'unknown').replace('_',' ')}`);
+            if (group.category === 2) {
+              details.push(`Altitude: ${Math.round(unit.y)} m MSL`);
+              if (Number.isFinite(unit.speed_mps)) details.push(`Ground speed: ${Math.round(unit.speed_mps * 3.6)} km/h`);
+              details.push(`FoW-known ROE: ${(roeState[group.name] || 'unknown').replace('_',' ')}`);
+            }
             details.push(`DCS x ${unit.x}, z ${unit.z}`, `${unit.lat.toFixed(5)}°, ${unit.lon.toFixed(5)}°`);
             const marker = L.marker(point, {icon}).bindPopup(popup(unit.name, details)).addTo(markers);
             marker.on('click', () => selectGroup(group.name));
@@ -454,18 +492,19 @@
             .addTo(rangeLayers);
         }
         for (const order of newestMovement.values()) {
-          if (!['move','air_move','spawn_air'].includes(order.op) || order.target_lat == null || order.target_lon == null || !['accepted','at_target'].includes(order.state)) continue;
+          if (!['move','air_move','spawn_air','set_mission'].includes(order.op) || order.target_lat == null || order.target_lon == null || !['accepted','at_target'].includes(order.state)) continue;
           const group = (snapshot.groups || []).find(g => g.name === order.group_name);
           const unit = leadUnit(group);
           if (!unit) continue;
           const target = [order.target_lat,order.target_lon];
           const color = group.coalition === 2 ? '#6baaff' : '#ff7b7b';
           const origin = L.latLng(unit.lat, unit.lon);
-          L.polyline([origin,target], {color, weight:2, dashArray:'7,5'})
-            .bindTooltip(`${(origin.distanceTo(target) / 1000).toFixed(1)} km`, {permanent:true, direction:'center'})
-            .addTo(orderLayers);
+          const routeLine = L.polyline([origin,target], {color, weight:2, dashArray:'7,5'}).addTo(orderLayers);
+          if (group.name === selectedGroup && (group.category === 0 || group.category === 1)) {
+            routeLine.bindTooltip(`${(origin.distanceTo(target) / 1852).toFixed(1)} NM`, {permanent:true, direction:'center'});
+          }
           L.circleMarker(target, {radius:7, color, weight:2, fillOpacity:0.25})
-            .bindPopup(popup(`${order.group_name} last requested point`, [`${order.op} · order ${order.id.slice(0,8)}`, `Requested altitude: ${order.target_alt_m == null ? 'ground' : `${Math.round(order.target_alt_m)} m MSL`}`, order.state.replace('_',' '), new Date(order.created_at*1000).toLocaleString(), 'FoW request; DCS route is not read back.']))
+            .bindPopup(popup(`${order.group_name} last requested point`, [`${order.op} · order ${order.id.slice(0,8)}`, `Requested altitude: ${order.target_alt_m == null ? 'ground' : `${Math.round(metresToFeet(order.target_alt_m)).toLocaleString()} ft MSL`}`, order.state.replace('_',' '), new Date(order.created_at*1000).toLocaleString(), 'FoW request; DCS route is not read back.']))
             .addTo(orderLayers);
         }
         for (const [name, trail] of Object.entries(dashboard.tracks || {})) {

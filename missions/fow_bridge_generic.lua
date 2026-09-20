@@ -38,6 +38,11 @@ function FoWBridge.status(id)
                         local velocity = unit:getVelocity()
                         local speed = math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)
                         local lat, lon = coord.LOtoLL(point)
+                        local fuel = ''
+                        if group:getCategory() == Group.Category.AIRPLANE
+                                or group:getCategory() == Group.Category.HELICOPTER then
+                            fuel = ',"fuel":' .. number(unit:getFuel())
+                        end
                         units[#units + 1] = '{"id":' .. unit:getID()
                             .. ',"name":' .. quoted(unit:getName())
                             .. ',"type":' .. quoted(unit:getTypeName())
@@ -46,7 +51,8 @@ function FoWBridge.status(id)
                             .. ',"z":' .. number(point.z)
                             .. ',"speed_mps":' .. number(speed)
                             .. ',"lat":' .. geo_number(lat)
-                            .. ',"lon":' .. geo_number(lon) .. '}'
+                            .. ',"lon":' .. geo_number(lon)
+                            .. fuel .. '}'
                     end
                 end
                 groups[#groups + 1] = '{"id":' .. group:getID()
