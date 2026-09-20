@@ -7,6 +7,7 @@ env_file="$compose_dir/.env"
 data_root=/data/dcs-fow
 mission_source="$repo_dir/missions"
 mission_target="$data_root/config/.wine/drive_c/users/abc/Saved Games/DCS.dcs_serverrelease/Missions"
+saved_games="$data_root/config/.wine/drive_c/users/abc/Saved Games/DCS.dcs_serverrelease"
 expected_uuid=d15d08d9-8da9-4f2a-8c6d-530907121096
 
 usage() {
@@ -19,6 +20,9 @@ Usage: ./scripts/dcs.sh <command>
   status    Show container status
   logs      Follow recent container logs (Ctrl+C to exit)
   missions  Copy the repo FoW mission into DCS Saved Games
+  bridge    Install the FoW Saved Games hook and create its command directory
+  mission-move-test  Deploy the isolated move-test mission beside fow.miz
+  bridge-move-test   Install the move-test hook (bridge restores the baseline)
   config    Prepare configuration and validate Compose without starting
   help      Show this help
 EOF
@@ -132,6 +136,53 @@ deploy_missions() {
   echo "Deployed: $destination"
 }
 
+deploy_bridge() {
+  deploy_hook "$repo_dir/bridge/fow_hook.lua"
+}
+
+deploy_hook() {
+  require_data_disk
+  local hooks="$saved_games/Scripts/Hooks"
+  local source="$1"
+  local destination="$hooks/fow_hook.lua"
+  mkdir -p "$hooks" "$saved_games/FoW"
+  if [[ ! -w "$hooks" || ! -w "$saved_games/FoW" ]]; then
+    echo "DCS Saved Games bridge directories are not writable." >&2
+    exit 1
+  fi
+  if [[ -f "$destination" ]] && cmp -s "$source" "$destination"; then
+    echo "Already current: fow_hook.lua"
+  else
+    install -m 644 "$source" "$destination"
+    echo "Deployed: $destination"
+  fi
+  echo "Restart the DCS process to load a newly installed hook."
+}
+
+deploy_move_test_mission() {
+  require_data_disk
+  local source="$mission_source/.fow-move-candidate.miz"
+  local destination="$mission_target/fow-move-candidate.miz"
+  if [[ ! -f "$source" ]]; then
+    echo "Build the candidate first: ./scripts/build-mission.sh --candidate" >&2
+    exit 1
+  fi
+  mkdir -p "$mission_target"
+  if [[ ! -w "$mission_target" ]]; then
+    echo "$mission_target is not writable by $(id -un)." >&2
+    exit 1
+  fi
+  if [[ -f "$destination" ]] && cmp -s "$source" "$destination"; then
+    echo "Already current: fow-move-candidate.miz"
+    return
+  fi
+  local temporary
+  temporary="$(mktemp "$mission_target/.fow-move.XXXXXX")"
+  install -m 644 "$source" "$temporary"
+  mv -f "$temporary" "$destination"
+  echo "Deployed: $destination"
+}
+
 command="${1:-help}"
 if [[ "$#" -gt 1 ]]; then
   usage >&2
@@ -154,6 +205,15 @@ case "$command" in
     ;;
   missions)
     deploy_missions
+    ;;
+  bridge)
+    deploy_bridge
+    ;;
+  mission-move-test)
+    deploy_move_test_mission
+    ;;
+  bridge-move-test)
+    deploy_hook "$repo_dir/bridge/fow_hook_move.lua"
     ;;
   stop)
     require_docker

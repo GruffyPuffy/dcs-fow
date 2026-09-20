@@ -40,3 +40,4 @@ __pycache__/
 .DS_Store
 
 # missions/fow.miz is deliberately tracked as a deployable project artifact.
+missions/.fow-move-candidate.miz

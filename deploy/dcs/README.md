@@ -32,6 +32,7 @@ Run these from the project root:
 | `./scripts/dcs.sh status` | Show container status |
 | `./scripts/dcs.sh logs` | Follow recent logs; Ctrl+C exits the log view |
 | `./scripts/dcs.sh missions` | Copy `missions/fow.miz` to DCS Saved Games |
+| `./scripts/dcs.sh bridge` | Install the project-owned Saved Games hook and command directory |
 
 
 The setup script expects the current user to have Docker access. If `docker compose` reports a daemon permission error, the documented [Docker post-install options](https://docs.docker.com/engine/install/linux-postinstall/) include running Docker commands with sudo or adding the user to the `docker` group. Membership in that group grants root-level control over the host, so choose it deliberately.
@@ -50,6 +51,8 @@ To change slots later, edit `missions/build_mission.py`, then run from the proje
 ```
 
 The DCS container must be running; use `./scripts/dcs.sh start` first if it is stopped. `build-mission.sh` uses Python inside that container. It creates a temporary virtual environment there, installs `pydcs==0.15.0` if needed, builds `missions/fow.miz`, and checks for three Client slots and Blue ownership of Batumi. The temporary environment is recreated if Docker replaces the container. The build command only changes the repo mission; `dcs.sh missions` copies it to the server. **Restart the mission in DCS WebGUI** to load the new archive. Review new ground placements in the DCS Mission Editor. Keep the generated `.miz` in the repo so server deployment does not require pydcs.
+
+The first bridge trial adds two unarmed ground groups and a small mission Lua probe. Its separate Saved Games hook is installed by `./scripts/dcs.sh bridge`; it does not modify DCS installation files. See [Experiment 0002](../../docs/experiments/0002-saved-games-bridge.md) for the live test and its limits.
 
 To change the **Webtop** login password, edit only `WEBTOP_PASSWORD` in `deploy/dcs/.env`, then run `./scripts/dcs.sh start`. Compose will recreate the container to apply the environment change, interrupting any running mission. With `AUTOSTART=1`, the image starts DCS again if the DCS launcher has saved login and auto login enabled. The DCS multiplayer **server password** is a separate setting in the DCS WebGUI.
 
