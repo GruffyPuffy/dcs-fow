@@ -126,6 +126,11 @@ def main() -> None:
             elif path.path == "/api/air-catalog":
                 body = AIR_CATALOG.read_bytes()
                 content_type = "application/json; charset=utf-8"
+            elif path.path == "/api/airbase-catalog":
+                # Extract airbases from mission - in future this could be from a separate file
+                # For now, return empty catalog until mission build embeds it
+                body = json.dumps({"blue": {}, "red": {}}, separators=(",", ":")).encode("utf-8")
+                content_type = "application/json; charset=utf-8"
             elif path.path == "/api/status":
                 sides = parse_qs(path.query).get("side", ["blue"])
                 if len(sides) != 1 or sides[0] not in ("blue", "red", "admin"):
@@ -149,7 +154,7 @@ def main() -> None:
             self.wfile.write(body)
 
         def do_POST(self) -> None:
-            if self.path not in ("/api/orders", "/api/move", "/api/spawn", "/api/spawn-air", "/api/alias"):
+            if self.path not in ("/api/orders", "/api/move", "/api/spawn", "/api/spawn-air", "/api/alias", "/api/set-mission", "/api/rtb"):
                 self.send_error(404)
                 return
             # JSON plus a custom header prevents a cross-site HTML form from
@@ -183,12 +188,14 @@ def main() -> None:
                         template = request["preset"]
                         catalog = json.loads(AIR_CATALOG.read_text())
                         op = "spawn_air"
+                        if not isinstance(template, str) or template not in catalog.get("presets", {}).get(side, {}):
+                            raise ValueError("Unknown spawn preset")
                     else:
                         template = request["template"]
                         catalog = load_catalog()
                         op = "spawn"
-                    if not isinstance(template, str) or template not in catalog[side]:
-                        raise ValueError("Unknown spawn preset")
+                        if not isinstance(template, str) or template not in catalog[side]:
+                            raise ValueError("Unknown spawn preset")
                     custom_name = request.get("name")
                     if custom_name is not None and (
                             not isinstance(custom_name, str) or
@@ -197,6 +204,22 @@ def main() -> None:
                             custom_name.strip() != custom_name):
                         raise ValueError("Name must be 3–60 ASCII letters, digits, spaces, _ or -")
                     name = template
+                elif self.path == "/api/set-mission":
+                    name = request["group"]
+                    op = "set_mission"
+                    if not isinstance(name, str) or not name or len(name) > 128:
+                        raise ValueError("Invalid group")
+                    mission_type = request.get("mission_type")
+                    if mission_type not in ("patrol", "CAP"):
+                        raise ValueError("Invalid mission type")
+                elif self.path == "/api/rtb":
+                    name = request["group"]
+                    op = "rtb"
+                    if not isinstance(name, str) or not name or len(name) > 128:
+                        raise ValueError("Invalid group")
+                    rtb_base = request.get("airbase")
+                    if not isinstance(rtb_base, str) or not rtb_base or len(rtb_base) > 64:
+                        raise ValueError("Invalid airbase")
                 else:
                     name = request["group"]
                     op = request.get("op", "move" if self.path == "/api/move" else None)
@@ -209,7 +232,7 @@ def main() -> None:
                         if mode not in ("open_fire", "return_fire", "weapon_hold"):
                             raise ValueError("Invalid rules of engagement")
                 lat = lon = None
-                if op in ("move", "spawn", "spawn_air", "air_move"):
+                if op in ("move", "spawn", "spawn_air", "air_move", "set_mission"):
                     lat, lon = request["lat"], request["lon"]
                     if (not isinstance(lat, (int, float)) or isinstance(lat, bool) or
                         not isinstance(lon, (int, float)) or isinstance(lon, bool) or
@@ -217,13 +240,28 @@ def main() -> None:
                         abs(lat) > 90 or abs(lon) > 180):
                         raise ValueError("Invalid map coordinates")
                 altitude_m = None
+                mission_type_val = None
+                loadout_val = None
+                rtb_base_val = None
                 if op == "air_move":
                     altitude_m = request.get("altitude_m", 5000)
                     if (not isinstance(altitude_m, (int, float)) or isinstance(altitude_m, bool) or
                             not math.isfinite(altitude_m) or not 1000 <= altitude_m <= 12000):
                         raise ValueError("Aircraft altitude must be 1000–12000 m")
                 elif op == "spawn_air":
-                    altitude_m = catalog[side][template]["altitude_m"]
+                    preset_data = catalog["presets"][side][template]
+                    altitude_m = preset_data["altitude_m"]
+                    mission_type_val = preset_data["mission_type"]
+                    loadout_val = preset_data.get("loadout")
+                    rtb_base_val = preset_data.get("default_rtb_base")
+                elif op == "set_mission":
+                    altitude_m = request.get("altitude_m", 5000)
+                    if (not isinstance(altitude_m, (int, float)) or isinstance(altitude_m, bool) or
+                            not math.isfinite(altitude_m) or not 1000 <= altitude_m <= 12000):
+                        raise ValueError("Aircraft altitude must be 1000–12000 m")
+                    mission_type_val = mission_type
+                elif op == "rtb":
+                    rtb_base_val = rtb_base
             except (ValueError, KeyError, TypeError) as error:
                 self.json_response(400, {"ok": False, "error": str(error)})
                 return
@@ -237,7 +275,8 @@ def main() -> None:
             if op not in ("spawn", "spawn_air"):
                 groups = snapshot.get("groups", [])
                 allowed = {"blue": 2, "red": 1, "admin": None}[side]
-                if not any(g.get("name") == name and (op == "alias" or g.get("category") == (0 if op == "air_move" else 2)) and
+                required_category = 0 if op in ("air_move", "set_mission", "rtb") else 2
+                if not any(g.get("name") == name and (op == "alias" or g.get("category") == required_category) and
                            g.get("coalition") in (1, 2) and
                            (allowed is None or g.get("coalition") == allowed) and g.get("units") for g in groups):
                     self.json_response(400, {"ok": False, "error": "Choose an active group on this side"})
@@ -247,7 +286,7 @@ def main() -> None:
                 self.json_response(200, {"ok": True, "group": name, "alias": alias})
                 return
             order_id = uuid.uuid4().hex
-            store.create_order(order_id, op, name, lat, lon, altitude_m)
+            store.create_order(order_id, op, name, lat, lon, altitude_m, mission_type_val, loadout_val, rtb_base_val)
             try:
                 fields = {"group": name}
                 if op == "spawn":
@@ -260,8 +299,12 @@ def main() -> None:
                         fields["name"] = custom_name
                 elif op in ("move", "air_move"):
                     fields.update(lat=lat, lon=lon)
-                    if op == "air_move":
-                        fields["altitude_m"] = altitude_m
+                elif op == "set_mission":
+                    fields.update(lat=lat, lon=lon, mission_type=mission_type, altitude_m=altitude_m)
+                elif op == "rtb":
+                    fields["airbase"] = rtb_base
+                elif op == "air_move":
+                    fields["altitude_m"] = altitude_m
                 elif op == "set_roe":
                     fields["mode"] = mode
                 result = exchange(args.bridge_host, args.bridge_port,
@@ -278,7 +321,8 @@ def main() -> None:
                 if result["result"].endswith(";ROE=OPEN_FIRE"):
                     store.set_roe(group_name, "open_fire")
             if op == "spawn_air" and result.get("ok") and result.get("result", "").startswith("AIR_SPAWN_ACCEPTED:"):
-                store.rename_order_group(order_id, result["result"].split(":", 1)[1])
+                group_name = result["result"].split(":", 1)[1].split(";", 1)[0]
+                store.rename_order_group(order_id, group_name)
             if op == "set_roe" and result.get("ok"):
                 store.set_roe(name, mode)
             store.finish_order(order_id, order_state, result.get("result") or result.get("error") or "No detail")

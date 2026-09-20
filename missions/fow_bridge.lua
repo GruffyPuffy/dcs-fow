@@ -238,8 +238,8 @@ local function copy_table(value)
 end
 
 function FoWBridge.spawnAir(id, side_name, preset_name, lat, lon, requested_name)
-    local side_catalog = FoWAirCatalog and FoWAirCatalog[side_name]
-    local preset = side_catalog and side_catalog[preset_name]
+    local air_presets = FoWAirCatalog and FoWAirCatalog.presets and FoWAirCatalog.presets[side_name]
+    local preset = air_presets and air_presets[preset_name]
     if not preset then return reply(id, false, 'UNKNOWN_AIR_PRESET') end
     local data = copy_table(preset.group)
     local destination = coord.LLtoLO(lat, lon)
@@ -259,10 +259,12 @@ function FoWBridge.spawnAir(id, side_name, preset_name, lat, lon, requested_name
         if Group.getByName(name) then return reply(id, false, 'NAME_IN_USE') end
     else
         air_sequence = air_sequence + 1
-        name = string.format('FoW %s AI Air Test %03d', side_name == 'blue' and 'Blue' or 'Red', air_sequence)
+        name = string.format('FoW %s %s %03d', side_name == 'blue' and 'Blue' or 'Red',
+            preset.label:gsub('[^A-Za-z0-9 ]', ''):sub(1, 20), air_sequence)
         while Group.getByName(name) do
             air_sequence = air_sequence + 1
-            name = string.format('FoW %s AI Air Test %03d', side_name == 'blue' and 'Blue' or 'Red', air_sequence)
+            name = string.format('FoW %s %s %03d', side_name == 'blue' and 'Blue' or 'Red',
+                preset.label:gsub('[^A-Za-z0-9 ]', ''):sub(1, 20), air_sequence)
         end
     end
     data.name = name
@@ -272,16 +274,146 @@ function FoWBridge.spawnAir(id, side_name, preset_name, lat, lon, requested_name
     unit.unitId = nil
     unit.skill = 'High'
     if Unit.getByName(unit.name) then return reply(id, false, 'UNIT_NAME_IN_USE') end
+    
+    -- Set waypoint at mission point with altitude from preset
+    -- For CAP, use proper DCS CAP task; for patrol, simple orbit
+    local waypoint_task = {id = 'ComboTask', params = {tasks = {}}}
+    if preset.mission_type == 'CAP' then
+        waypoint_task = {
+            id = 'ComboTask',
+            params = {
+                tasks = {
+                    [1] = {
+                        id = 'CAP',
+                        params = {
+                            x = destination.x,
+                            y = destination.z,
+                            alt = preset.altitude_m,
+                            speed = preset.speed_mps,
+                            pattern = 'Circle',
+                            priority = 0
+                        }
+                    }
+                }
+            }
+        }
+    elseif preset.mission_type == 'patrol' then
+        waypoint_task = {
+            id = 'ComboTask',
+            params = {
+                tasks = {
+                    [1] = {
+                        id = 'Orbit',
+                        params = {
+                            pattern = 'Circle',
+                            speed = preset.speed_mps,
+                            altitude = preset.altitude_m
+                        }
+                    }
+                }
+            }
+        }
+    end
     data.route.points[2] = {
-        x = destination.x, y = destination.z, alt = 5000, alt_type = 'BARO',
-        speed = 210, speed_locked = true, ETA = 0, ETA_locked = false,
-        type = 'Turning Point', action = 'Turning Point', name = 'FoW waypoint',
-        task = {id = 'ComboTask', params = {tasks = {}}},
+        x = destination.x, y = destination.z, alt = preset.altitude_m, alt_type = 'BARO',
+        speed = preset.speed_mps, speed_locked = true, ETA = 0, ETA_locked = false,
+        type = 'Turning Point', action = 'Turning Point', name = 'Mission point',
+        task = waypoint_task,
     }
     local country_id = side_name == 'blue' and country.id.USA or country.id.RUSSIA
     local ok, group = pcall(coalition.addGroup, country_id, Group.Category.AIRPLANE, data)
     if not ok or not group then return reply(id, false, 'AIR_SPAWN_FAILED') end
-    return reply(id, true, 'AIR_SPAWN_ACCEPTED:' .. name)
+    return reply(id, true, 'AIR_SPAWN_ACCEPTED:' .. name .. ';MISSION=' .. preset.mission_type)
+end
+
+function FoWBridge.setMission(id, group_name, mission_type, lat, lon, altitude_m)
+    local group = Group.getByName(group_name)
+    if not group or not group:isExist() then return reply(id, false, 'GROUP_MISSING') end
+    if group:getCategory() ~= Group.Category.AIRPLANE then return reply(id, false, 'NOT_AIRCRAFT') end
+    if group:getCoalition() ~= coalition.side.BLUE and group:getCoalition() ~= coalition.side.RED then
+        return reply(id, false, 'INVALID_COALITION')
+    end
+    local units = group:getUnits() or {}
+    for _, unit in pairs(units) do
+        if unit:getPlayerName() then return reply(id, false, 'PLAYER_CONTROLLED') end
+    end
+    local lead = units[1]
+    if not lead or not lead:isExist() then return reply(id, false, 'UNIT_MISSING') end
+    local destination = coord.LLtoLO(lat, lon)
+    local current = lead:getPoint()
+    local dx, dz = destination.x - current.x, destination.z - current.z
+    if dx * dx + dz * dz < 2000 * 2000 or dx * dx + dz * dz > 300000 * 300000 then
+        return reply(id, false, 'AIR_TARGET_RANGE')
+    end
+    local function waypoint(x, z, altitude, speed)
+        local task = {id = 'ComboTask', params = {tasks = {}}}
+        if mission_type == 'CAP' then
+            task = {
+                id = 'ComboTask',
+                params = {
+                    tasks = {
+                        [1] = {
+                            id = 'CAP',
+                            params = {
+                                x = x,
+                                y = z,
+                                alt = altitude,
+                                speed = speed,
+                                pattern = 'Circle',
+                                priority = 0
+                            }
+                        }
+                    }
+                }
+            }
+        elseif mission_type == 'patrol' then
+            task = {
+                id = 'ComboTask',
+                params = {
+                    tasks = {
+                        [1] = {
+                            id = 'Orbit',
+                            params = {
+                                pattern = 'Circle',
+                                speed = speed,
+                                altitude = altitude
+                            }
+                        }
+                    }
+                }
+            }
+        end
+        return {x = x, y = z, alt = altitude, alt_type = 'BARO', speed = speed,
+            type = 'Turning Point', action = 'Turning Point', speed_locked = true,
+            ETA = 0, ETA_locked = false, task = task}
+    end
+    local route = {points = {[1] = waypoint(current.x, current.z, math.max(1000, current.y), 210),
+                           [2] = waypoint(destination.x, destination.z, altitude_m, 210)}}
+    local ok = pcall(function()
+        group:getController():setTask({id = 'Mission', params = {route = route}})
+    end)
+    if not ok then return reply(id, false, 'MISSION_SET_FAILED') end
+    return reply(id, true, 'MISSION_SET:' .. mission_type)
+end
+
+function FoWBridge.rtbCommand(id, group_name, airbase_name)
+    local group = Group.getByName(group_name)
+    if not group or not group:isExist() then return reply(id, false, 'GROUP_MISSING') end
+    if group:getCategory() ~= Group.Category.AIRPLANE then return reply(id, false, 'NOT_AIRCRAFT') end
+    local units = group:getUnits() or {}
+    for _, unit in pairs(units) do
+        if unit:getPlayerName() then return reply(id, false, 'PLAYER_CONTROLLED') end
+    end
+    local airbase = Airbase.getByName(airbase_name)
+    if not airbase then return reply(id, false, 'AIRBASE_NOT_FOUND') end
+    local ok = pcall(function()
+        group:getController():setTask({
+            id = 'Land',
+            params = {durationFlag = false, airdromeId = airbase:getID()}
+        })
+    end)
+    if not ok then return reply(id, false, 'RTB_FAILED') end
+    return reply(id, true, 'RTB_ACCEPTED:' .. airbase_name)
 end
 
 -- The hook passes data here. Keep the operation allowlist and DCS-specific
@@ -320,12 +452,29 @@ function FoWBridge.handle(request)
             request.lat, request.lon, request.name or '')
     end
     if op == 'spawn_air' then
-        if not valid_side or request.preset ~= 'test_flight'
+        if not valid_side or type(request.preset) ~= 'string' or #request.preset < 1
+            or #request.preset > 32 or not request.preset:match('^[%w_-]+$')
             or not valid_geo(request) or not valid_custom_name(request.name) then
             return reply(id, false, 'INVALID_AIR_SPAWN')
         end
         return FoWBridge.spawnAir(id, request.side, request.preset,
             request.lat, request.lon, request.name or '')
+    end
+    if op == 'set_mission' then
+        if not valid_group_name(request.group) or not valid_geo(request)
+            or not valid_number(request.altitude_m, 12000) or request.altitude_m < 1000
+            or (request.mission_type ~= 'patrol' and request.mission_type ~= 'CAP') then
+            return reply(id, false, 'INVALID_SET_MISSION')
+        end
+        return FoWBridge.setMission(id, request.group, request.mission_type,
+            request.lat, request.lon, request.altitude_m)
+    end
+    if op == 'rtb' then
+        if not valid_group_name(request.group) or type(request.airbase) ~= 'string'
+            or #request.airbase < 1 or #request.airbase > 64 then
+            return reply(id, false, 'INVALID_RTB')
+        end
+        return FoWBridge.rtbCommand(id, request.group, request.airbase)
     end
     if not valid_group_name(request.group) then return reply(id, false, 'INVALID_GROUP') end
     if op == 'air_move' then

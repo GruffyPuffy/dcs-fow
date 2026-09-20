@@ -164,7 +164,8 @@
           ? 'Unarmed air start near Batumi or Gudauta at 5 km; staged point is the first waypoint (5–150 km from start).'
           : 'Ground spawns need a friendly unit within 50 km. Single SAM components may need a full site.';
         if (isAir) {
-          for (const [id, entry] of Object.entries(airCatalog[sideSelect.value] || {})) {
+          const presets = airCatalog?.presets?.[sideSelect.value] || {};
+          for (const [id, entry] of Object.entries(presets)) {
             const option = document.createElement('option');
             option.value = id; option.textContent = entry.label;
             spawnSelect.append(option);
@@ -397,6 +398,13 @@
             if (group.category === 0 || group.category === 1) {
               details.push(`Altitude: ${Math.round(unit.y)} m MSL`);
               if (Number.isFinite(unit.speed_mps)) details.push(`Ground speed: ${Math.round(unit.speed_mps * 3.6)} km/h`);
+              // Add flight plan details for aircraft
+              const spawnOrder = newestForGroup.get(group.name);
+              if (group.category === 0 && spawnOrder?.op === 'spawn_air') {
+                if (spawnOrder.mission_type) details.push(`Mission: ${spawnOrder.mission_type === 'CAP' ? 'CAP' : 'Patrol'}`);
+                if (spawnOrder.loadout) details.push(`Loadout: ${spawnOrder.loadout}`);
+                if (spawnOrder.rtb_base) details.push(`RTB base: ${spawnOrder.rtb_base}`);
+              }
             }
             if (group.category === 2) details.push(`FoW-known ROE: ${(roeState[group.name] || 'unknown').replace('_',' ')}`);
             details.push(`DCS x ${unit.x}, z ${unit.z}`, `${unit.lat.toFixed(5)}°, ${unit.lon.toFixed(5)}°`);

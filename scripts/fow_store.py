@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS orders (
     target_lat REAL,
     target_lon REAL,
     target_alt_m REAL,
+    mission_type TEXT,
+    loadout TEXT,
+    rtb_base TEXT,
     state TEXT NOT NULL,
     detail TEXT NOT NULL,
     observed_at REAL
@@ -71,8 +74,15 @@ class Store:
         path.parent.mkdir(parents=True, exist_ok=True)
         with self.connection() as db:
             db.executescript(SCHEMA)
-            if "target_alt_m" not in {row["name"] for row in db.execute("PRAGMA table_info(orders)")}:
+            existing_cols = {row["name"] for row in db.execute("PRAGMA table_info(orders)")}
+            if "target_alt_m" not in existing_cols:
                 db.execute("ALTER TABLE orders ADD COLUMN target_alt_m REAL")
+            if "mission_type" not in existing_cols:
+                db.execute("ALTER TABLE orders ADD COLUMN mission_type TEXT")
+            if "loadout" not in existing_cols:
+                db.execute("ALTER TABLE orders ADD COLUMN loadout TEXT")
+            if "rtb_base" not in existing_cols:
+                db.execute("ALTER TABLE orders ADD COLUMN rtb_base TEXT")
             db.execute("UPDATE orders SET state='unknown',detail='FoW server restarted before reply' WHERE state='pending'")
 
     @contextmanager
@@ -143,13 +153,14 @@ class Store:
                     db.execute("UPDATE orders SET state='at_target',observed_at=? WHERE id=?", (now, order["id"]))
 
     def create_order(self, order_id: str, op: str, group: str, lat: float | None,
-                     lon: float | None, alt_m: float | None = None) -> None:
+                     lon: float | None, alt_m: float | None = None, mission_type: str | None = None,
+                     loadout: str | None = None, rtb_base: str | None = None) -> None:
         with self.connection() as db:
             session = int(self.get_meta(db, "session", "1"))
             db.execute("""
-                INSERT INTO orders(id,session,created_at,op,group_name,target_lat,target_lon,target_alt_m,state,detail)
-                VALUES(?,?,?,?,?,?,?,?,'pending','Awaiting DCS reply')
-            """, (order_id, session, time.time(), op, group, lat, lon, alt_m))
+                INSERT INTO orders(id,session,created_at,op,group_name,target_lat,target_lon,target_alt_m,mission_type,loadout,rtb_base,state,detail)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,'pending','Awaiting DCS reply')
+            """, (order_id, session, time.time(), op, group, lat, lon, alt_m, mission_type, loadout, rtb_base))
 
     def finish_order(self, order_id: str, state: str, detail: str) -> None:
         with self.connection() as db:

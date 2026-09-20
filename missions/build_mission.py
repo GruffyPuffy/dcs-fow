@@ -108,31 +108,73 @@ def main() -> None:
         position=dcs.Point(gudauta.position.x + 2500, gudauta.position.y + 2500, mission.terrain),
     )
 
+    # Capture airbases for RTB catalog
+    airbase_catalog = {"blue": {}, "red": {}}
+    for airport in mission.terrain.airport_list():
+        latlng = airport.position.latlng()
+        if airport.is_blue():
+            airbase_catalog["blue"][airport.name] = {
+                "label": airport.name,
+                "lat": round(latlng.lat, 6),
+                "lon": round(latlng.lng, 6)
+            }
+        elif airport.is_red():
+            airbase_catalog["red"][airport.name] = {
+                "label": airport.name,
+                "lat": round(latlng.lat, 6),
+                "lon": round(latlng.lng, 6)
+            }
+
     # Capture valid pydcs AI flight data, then remove the template groups. The
     # mission Lua clones these known-good tables for the manual air-start trial.
-    air_catalog = {}
+    air_catalog = {"presets": {}, "loadouts": {}}
     air_config = json.loads(Path(__file__).with_name("air_trial.json").read_text())
+    air_catalog["loadouts"] = air_config["loadouts"]
+    
     for side, country, airport, aircraft in (
         ("blue", usa, batumi, dcs.planes.FA_18C_hornet),
         ("red", mission.country("Russia"), gudauta, dcs.planes.MiG_29S),
     ):
-        group = mission.flight_group_inflight(
-            country=country, name=f"FoW {side} air template", aircraft_type=aircraft,
-            position=dcs.Point(airport.position.x - 15000, airport.position.y + 5000, mission.terrain),
-            altitude=5000, speed=750, maintask=dcs.task.Nothing, group_size=1,
-        )
-        group.units[0].skill = dcs.unit.Skill.High
-        data = group.dict()
-        data.pop("groupId", None)
-        for unit in data["units"].values():
-            unit.pop("unitId", None)
-        for waypoint in data["route"]["points"].values():
-            waypoint["task"] = {"id": "ComboTask", "params": {"tasks": {}}}
-        if not mission.remove_plane_group(group):
-            raise RuntimeError("Could not remove temporary AI flight template")
-        air_catalog[side] = {"test_flight": {"label": air_config[side]["test_flight"]["label"], "group": data}}
+        air_catalog["presets"][side] = {}
+        for preset_name, preset_config in air_config["presets"][side].items():
+            group = mission.flight_group_inflight(
+                country=country, name=f"FoW {side} {preset_name} template", aircraft_type=aircraft,
+                position=dcs.Point(airport.position.x - 15000, airport.position.y + 5000, mission.terrain),
+                altitude=preset_config["altitude_m"], speed=preset_config["speed_mps"],
+                maintask=dcs.task.Nothing, group_size=1,
+            )
+            group.units[0].skill = dcs.unit.Skill.High
+            
+            # Apply loadout if specified
+            loadout_name = preset_config.get("loadout")
+            if loadout_name and loadout_name in air_config["loadouts"][side]:
+                loadout = air_config["loadouts"][side][loadout_name]
+                for pylon_data in loadout["pylons"].values():
+                    # pydcs load_pylon expects (weapon_clsid, pylon_number)
+                    group.units[0].pylons[pylon_data["num"]] = {"CLSID": pylon_data["CLSID"]}
+            
+            data = group.dict()
+            data.pop("groupId", None)
+            for unit in data["units"].values():
+                unit.pop("unitId", None)
+            for waypoint in data["route"]["points"].values():
+                waypoint["task"] = {"id": "ComboTask", "params": {"tasks": {}}}
+            if not mission.remove_plane_group(group):
+                raise RuntimeError("Could not remove temporary AI flight template")
+            
+            air_catalog["presets"][side][preset_name] = {
+                "label": preset_config["label"],
+                "mission_type": preset_config["mission_type"],
+                "altitude_m": preset_config["altitude_m"],
+                "speed_mps": preset_config["speed_mps"],
+                "loadout": loadout_name,
+                "default_rtb_base": preset_config["default_rtb_base"],
+                "orbit_radius_m": preset_config.get("orbit_radius_m"),
+                "group": data
+            }
 
     mission.init_script = ("FoWAirCatalog = " + lua_literal(air_catalog) + "\n" +
+                           "FoWAirbaseCatalog = " + lua_literal(airbase_catalog) + "\n" +
                            "FoWSpawnCatalog = " + lua_literal(catalog) + "\n" +
                            Path(__file__).with_name("fow_bridge.lua").read_text())
 
