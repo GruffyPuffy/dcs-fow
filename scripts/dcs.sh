@@ -23,6 +23,7 @@ Usage: ./scripts/dcs.sh <command>
   bridge    Install the FoW Saved Games hook and create its command directory
   mission-move-test  Deploy the isolated move-test mission beside fow.miz
   bridge-move-test   Install the move-test hook (bridge restores the baseline)
+  bridge-socket-test Install the socket candidate hook (bridge restores the baseline)
   config    Prepare configuration and validate Compose without starting
   help      Show this help
 EOF
@@ -214,6 +215,9 @@ case "$command" in
     ;;
   bridge-move-test)
     deploy_hook "$repo_dir/bridge/fow_hook_move.lua"
+    ;;
+  bridge-socket-test)
+    deploy_hook "$repo_dir/bridge/fow_hook_socket.lua"
     ;;
   stop)
     require_docker

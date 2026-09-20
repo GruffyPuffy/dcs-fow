@@ -1,6 +1,6 @@
 # Project plan
 
-Status: server baseline proven; minimal bridge handoff works. Updated 2026-09-20.
+Status: server baseline proven; candidate socket bridge round trip works. Updated 2026-09-20.
 
 ## Intended experience
 
@@ -37,7 +37,7 @@ The proposed loop is: collect authoritative mission state; maintain side-specifi
 | --- | --- | --- |
 | 0. Align | Choose the first map, host and client setup. | **Done for the server trial:** Ubuntu 24.04, Caucasus, F/A-18C Windows client. Broader FoW scope remains open. |
 | 1. Host feasibility | Run [Experiment 0001](experiments/0001-linux-server-client-join.md): host one repo-owned Caucasus mission and join from Windows. | **Working:** server install, auto start, LAN join, air and ground spawn. Resource measurements and reboot test remain useful operational follow-up. |
-| 2. Live bridge | Export group status from mission Lua and pass a fixed command through a Saved Games hook. | **Partial:** two groups report positions; `PING` and `BLUE_HOLD` reach mission Lua. Still need visible movement, execution acknowledgement, invalid-order and restart tests. |
+| 2. Live bridge | Export group status from mission Lua and pass a fixed command through a Saved Games hook. | **Partial:** [Experiment 0004](experiments/0004-hook-socket.md) returned live state and a move acknowledgement over a localhost socket; Blue reached its target. Still need client-side visual observation, invalid-order, disconnect, restart and larger-state tests. |
 | 3. Deterministic battle | Add fixed zones, objectives, two sides, basic detection filtering, action validation and scripted commanders. | Both sides act independently without an LLM; hidden units remain absent from enemy views. |
 | 4. Local LLM trial | Add separate Red/Blue briefs and structured output behind the same validator. Replay recorded states and compare decisions. | Valid order rate, inference latency, strategic continuity and failure behavior measured on the actual host. |
 | 5. Living mission | Add player interaction, broader orders, reinforcements and persistence only where evidence supports them. | An unattended session evolves coherently; a human can join and affect later decisions. |
@@ -47,8 +47,8 @@ Agree on each new experiment before implementing it. The first server trial is c
 
 ## Open design questions
 
-1. What is the smallest state record and one safe AI order for the live bridge test?
-2. Should bridge transport use a server hook, mission Lua with a narrow socket, or another supported path?
+1. What bounded state record and order schema should replace the fixed bridge test strings?
+2. Should the FoW service run on the Ubuntu host or as a separate container on a private Docker network?
 3. Must war state survive mission/server restarts in the first playable version?
 4. Should the Blue commander issue suggestions to the player or treat the player as autonomous at first?
 
@@ -56,6 +56,6 @@ Agree on each new experiment before implementing it. The first server trial is c
 
 - The [Aterfax container](https://github.com/Aterfax/DCS-World-Dedicated-Server-Docker) works for this host's basic server and client trial. DCS updates and later Lua integration still need testing.
 - The [DCS controller API](https://www.digitalcombatsimulator.com/en/support/faq/1267/) supports AI tasks, but task behavior varies by unit type and situation. A broad phrase such as “hold the river” still needs explicit translation and live testing.
-- The [mission scripting environment](https://www.digitalcombatsimulator.com/en/support/faq/1253/) is isolated. File and socket examples in the pasted discussion should not be treated as working bridge code. The bridge mechanism is an early experiment.
+- The [mission scripting environment](https://www.digitalcombatsimulator.com/en/support/faq/1253/) is isolated. The tested socket belongs to a Saved Games hook; mission Lua itself has no file or socket access. The bridge protocol is still experimental.
 - [pydcs](https://github.com/pydcs/dcs) generated the repo's `fow.miz`. It is not the live command channel. Its default neutral airfield ownership blocked ground slots until Batumi was set to Blue.
 - The pasted model latency, memory and hardware estimates are unverified for this machine. Measure them before choosing model and deployment method.
