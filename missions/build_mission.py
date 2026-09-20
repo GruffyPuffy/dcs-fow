@@ -180,6 +180,7 @@ def main() -> None:
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.with_name("air_templates.json").write_text(json.dumps(air_catalog["presets"], indent=2))
+    output.with_name("airbase_catalog.json").write_text(json.dumps(airbase_catalog, indent=2))
     mission.save(str(output))
     print(output)
 

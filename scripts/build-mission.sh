@@ -16,6 +16,7 @@ container_catalog=/tmp/spawn_catalog.json
 container_unit_catalog=/tmp/unit_catalog.json
 container_air_catalog=/tmp/air_trial.json
 container_air_templates=/tmp/air_templates.json
+container_airbase_catalog=/tmp/airbase_catalog.json
 container_output=/tmp/dcs-fow-built.miz
 
 if [[ "$#" -ne 0 ]]; then
@@ -75,6 +76,7 @@ temporary="$(mktemp "$repo_dir/missions/.fow-build.XXXXXX.miz")"
 trap 'rm -f "$temporary"' EXIT
 docker cp "$container:$container_output" "$temporary"
 docker cp "$container:$container_air_templates" "$repo_dir/missions/air_templates.json"
+docker cp "$container:$container_airbase_catalog" "$repo_dir/missions/airbase_catalog.json"
 
 python3 - "$temporary" <<'PY'
 import re

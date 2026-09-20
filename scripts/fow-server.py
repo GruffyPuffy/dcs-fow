@@ -22,6 +22,7 @@ CATALOG = Path(__file__).resolve().parent.parent / "missions" / "spawn_catalog.j
 UNIT_CATALOG = CATALOG.with_name("unit_catalog.json")
 AIR_CATALOG = CATALOG.with_name("air_trial.json")
 AIR_TEMPLATES = CATALOG.with_name("air_templates.json")
+AIRBASE_CATALOG = CATALOG.with_name("airbase_catalog.json")
 
 
 def load_catalog() -> dict:
@@ -129,9 +130,7 @@ def main() -> None:
                 body = AIR_CATALOG.read_bytes()
                 content_type = "application/json; charset=utf-8"
             elif path.path == "/api/airbase-catalog":
-                # Extract airbases from mission - in future this could be from a separate file
-                # For now, return empty catalog until mission build embeds it
-                body = json.dumps({"blue": {}, "red": {}}, separators=(",", ":")).encode("utf-8")
+                body = AIRBASE_CATALOG.read_bytes()
                 content_type = "application/json; charset=utf-8"
             elif path.path == "/api/status":
                 sides = parse_qs(path.query).get("side", ["blue"])
@@ -342,9 +341,12 @@ def main() -> None:
                         result = exchange(args.bridge_host, args.bridge_port, "set_route",
                                           request_id=order_id, group_name=name, **route)
                     elif op == "rtb":
+                        airbase = json.loads(AIRBASE_CATALOG.read_text())[side][rtb_base]
                         result = exchange(args.bridge_host, args.bridge_port, "set_task",
                                           request_id=order_id, group_name=name,
-                                          task_data=dcs_structures.build_rtb_task(rtb_base))
+                                          task_data=dcs_structures.build_rtb_task(
+                                              rtb_base, airbase["lat"], airbase["lon"],
+                                              lead["lat"], lead["lon"], lead["y"]))
                     elif op == "hold":
                         result = exchange(args.bridge_host, args.bridge_port, "set_task",
                                           request_id=order_id, group_name=name,

@@ -219,19 +219,45 @@ def build_route_update(mission_type: str, current_lat: float, current_lon: float
     }
 
 
-def build_rtb_task(airbase_name: str) -> dict:
-    """Build RTB (land) task.
-    
-    Args:
-        airbase_name: DCS airbase name
-    
-    Returns:
-        A complete DCS Land task with a runtime airbase reference.
-    """
-    return {'id': 'Land', 'params': {
-        'durationFlag': False,
-        'airdromeId': {'__ref': 'airbase_id', 'name': airbase_name},
-    }}
+def build_rtb_task(airbase_name: str, airbase_lat: float, airbase_lon: float,
+                   current_lat: float, current_lon: float,
+                   current_altitude_m: float) -> dict:
+    """Build a fixed-wing mission route ending at an airbase."""
+    return {
+        'id': 'Mission',
+        'params': {
+            'airborne': True,
+            'route': {
+                'points': [
+                    {
+                        'alt': max(1000, current_altitude_m),
+                        'alt_type': 'BARO',
+                        'speed': 180,
+                        'speed_locked': True,
+                        'ETA': 0,
+                        'ETA_locked': False,
+                        'type': 'Turning Point',
+                        'action': 'Turning Point',
+                        'task': {'id': 'ComboTask', 'params': {'tasks': []}},
+                        '__geo': {'lat': current_lat, 'lon': current_lon},
+                    },
+                    {
+                        'alt': 0,
+                        'alt_type': 'BARO',
+                        'speed': 150,
+                        'speed_locked': True,
+                        'ETA': 0,
+                        'ETA_locked': False,
+                        'type': 'Land',
+                        'action': 'Landing',
+                        'task': {'id': 'ComboTask', 'params': {'tasks': []}},
+                        'airdromeId': {'__ref': 'airbase_id', 'name': airbase_name},
+                        '__geo': {'lat': airbase_lat, 'lon': airbase_lon},
+                    },
+                ]
+            },
+        },
+    }
 
 
 def build_ground_route(current_lat: float, current_lon: float, lat: float, lon: float) -> dict:

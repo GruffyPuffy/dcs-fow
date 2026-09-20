@@ -26,7 +26,7 @@
             "alt": 7000,
             "alt_type": "BARO",
             "psi": 0,
-            "onboard_num": "699",
+            "onboard_num": "659",
             "speed": 69.4444444444444,
             "hardpoint_racks": true,
             "AddPropAircraft": {
@@ -239,7 +239,7 @@
             "alt": 7000,
             "alt_type": "BARO",
             "psi": 0,
-            "onboard_num": "901",
+            "onboard_num": "833",
             "speed": 69.4444444444444,
             "hardpoint_racks": true,
             "payload": {
@@ -338,7 +338,7 @@
             "alt": 5000,
             "alt_type": "BARO",
             "psi": 0,
-            "onboard_num": "190",
+            "onboard_num": "370",
             "speed": 58.3333333333333,
             "hardpoint_racks": true,
             "payload": {
