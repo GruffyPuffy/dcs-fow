@@ -18,6 +18,7 @@ One UTF-8 JSON object per TCP connection, followed by `\n`. The response is also
 | `status` | `v:1`, string `id`, `op:"status"` | `ok:true`, `time`, `groups`, `statics` |
 | `hold` | `v:1`, string `id`, `op:"hold"`, `group` | `result:"HOLD_ACCEPTED"` or an error |
 | `move` | `v:1`, string `id`, `op:"move"`, `group`, numeric `x`, `z` | `result:"MOVE_ACCEPTED"` or an error |
+| `move_geo` | `v:1`, string `id`, `op:"move_geo"`, `group`, numeric `lat`, `lon` | Converts with DCS `coord.LLtoLO`, then applies the same ground move |
 
 Example:
 
@@ -25,7 +26,7 @@ Example:
 {"v":1,"id":"trial1","op":"status"}
 ```
 
-The `id` contains 1–64 ASCII letters, digits, `_` or `-`. The hook accepts only listed operations, caps group names at 128 bytes, and bounds move coordinates. It never executes request text as Lua. The mission checks that orders target an existing Red or Blue ground group, that no member is player controlled, and that move destinations are land. This is a prototype boundary, not a complete authorization scheme. Only trusted local processes should have access to port 10309.
+The `id` contains 1–64 ASCII letters, digits, `_` or `-`. The hook accepts only listed operations, caps group names at 128 bytes, and bounds move coordinates. It never executes request text as Lua. The mission checks that orders target an existing Red or Blue ground group, that no member is player controlled, that the destination is land, and that it is within 50 km of the group's current position. This is a prototype boundary, not a complete authorization scheme. Only trusted local processes should have access to port 10309.
 
 `status` enumerates active groups and their existing units for Neutral, Red, and Blue, plus existing static objects from all three coalitions. Groups include DCS ID, name, coalition, category, and units. Units include DCS ID, name, type, DCS `x/y/z` coordinates, and latitude/longitude. Statics include name, type, coalition and the same coordinates. Latitude/longitude come from DCS's [`coord.LOtoLL`](https://www.digitalcombatsimulator.com/en/support/faq/1257/), so a map client need not guess the terrain projection. Dead groups that DCS may still return are excluded using `isExist`; units no longer in a group are absent. Empty Client slots are not active units and do not appear until a player spawns. This is an **omniscient raw snapshot**. The future FoW service must derive side-specific views before exposing data to commanders or players. Airbases, scenery, and weapons are outside this first snapshot.
 
@@ -52,7 +53,7 @@ On the Ubuntu host, outside the DCS container:
 ./scripts/fowctl.py status
 ```
 
-`move-test` reads the current Blue ground group's position, then requests a 150 m northeast off-road move. It is a deliberate test action; use it once per trial. `./scripts/fowctl.py hold 'FoW Blue Ground'` and `./scripts/fowctl.py move 'FoW Blue Ground' X Z` exercise the other operations. The client prints formatted JSON and exits nonzero on a bridge error.
+`move-test` reads the current Blue ground group's position, then requests a 150 m northeast off-road move. It is a deliberate test action; use it once per trial. `./scripts/fowctl.py hold 'FoW Blue Ground'`, `./scripts/fowctl.py move 'FoW Blue Ground' X Z`, and `./scripts/fowctl.py move-geo 'FoW Blue Ground' LAT LON` exercise the other operations. The client prints formatted JSON and exits nonzero on a bridge error.
 
 For a client on another machine, keep the Docker port private and tunnel it over SSH to the Ubuntu host:
 

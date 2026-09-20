@@ -8,8 +8,8 @@ import sys
 import uuid
 
 
-def exchange(host: str, port: int, operation: str, **fields: object) -> dict:
-    request = {"v": 1, "id": uuid.uuid4().hex, "op": operation, **fields}
+def exchange(host: str, port: int, operation: str, *, request_id: str | None = None, **fields: object) -> dict:
+    request = {"v": 1, "id": request_id or uuid.uuid4().hex, "op": operation, **fields}
     payload = (json.dumps(request, separators=(",", ":")) + "\n").encode("utf-8")
     with socket.create_connection((host, port), timeout=5) as connection:
         connection.settimeout(5)
@@ -37,6 +37,10 @@ def main() -> None:
     move.add_argument("group")
     move.add_argument("x", type=float)
     move.add_argument("z", type=float)
+    geo = commands.add_parser("move-geo", help="Move a ground group to map latitude/longitude")
+    geo.add_argument("group")
+    geo.add_argument("lat", type=float)
+    geo.add_argument("lon", type=float)
     hold = commands.add_parser("hold")
     hold.add_argument("group")
     args = parser.parse_args()
@@ -55,6 +59,9 @@ def main() -> None:
         operation = "move"
     elif operation == "move":
         fields = {"group": args.group, "x": args.x, "z": args.z}
+    elif operation == "move-geo":
+        fields = {"group": args.group, "lat": args.lat, "lon": args.lon}
+        operation = "move_geo"
     elif operation == "hold":
         fields = {"group": args.group}
 

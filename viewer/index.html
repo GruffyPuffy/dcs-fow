@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FoW mission viewer</title>
+  <title>FoW manual control</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <style>
     :root { color-scheme: dark; font: 14px/1.4 system-ui, sans-serif; background: #111820; color: #e9eef3; }
     * { box-sizing: border-box; }
     body { margin: 0; }
-    .shell { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: 100vh; }
+    .shell { display: grid; grid-template-columns: 360px minmax(0, 1fr); height: 100vh; }
     aside { display: flex; flex-direction: column; background: #17222d; border-right: 1px solid #304252; min-height: 0; }
     header { padding: 18px 20px 14px; border-bottom: 1px solid #304252; }
     h1 { margin: 0; font-size: 20px; letter-spacing: .02em; }
@@ -20,13 +20,28 @@
     button { cursor: pointer; border: 1px solid #51677a; border-radius: 6px; background: #263746; color: #e9eef3; padding: 6px 10px; }
     button:hover { background: #354c5d; }
     #fit { margin-top: 10px; }
-    #groups { overflow: auto; flex: 1; padding: 10px; }
+    .scroll { overflow: auto; flex: 1; min-height: 0; padding: 10px; }
+    h2 { margin: 8px 2px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #b5c7d4; }
+    .order-panel { padding: 12px 20px; border-bottom: 1px solid #304252; }
+    .order-panel label { display: block; margin-top: 8px; font-size: 12px; color: #b5c7d4; }
+    .order-panel select { width: 100%; padding: 7px; border: 1px solid #51677a; border-radius: 6px; background: #263746; color: #e9eef3; }
+    #target { display: block; margin: 8px 0; font-size: 12px; color: #e9eef3; }
+    #send-order { width: 100%; margin-top: 8px; background: #356441; border-color: #70a77b; font-weight: 700; }
+    #send-order:disabled { opacity: .5; cursor: default; }
+    #order-feedback { min-height: 19px; margin-top: 7px; font-size: 12px; }
+    .history-item { margin: 0 0 7px; padding: 7px 10px; border-left: 3px solid #7891a3; background: #1e2d3a; font-size: 12px; }
+    .history-item.accepted { border-color: #70a77b; } .history-item.at_target { border-color: #f4d37c; }
+    .history-item.rejected, .history-item.unknown { border-color: #ff7b7b; }
+    .history-item span { display: block; color: #adc0ce; }
+    details { margin: 10px 2px; font-size: 12px; }
+    pre { max-height: 230px; overflow: auto; padding: 8px; background: #0f171d; white-space: pre-wrap; word-break: break-word; }
     .group { display: block; width: 100%; margin: 0 0 7px; padding: 10px 12px; text-align: left; background: #1e2d3a; }
     .group strong { display: block; font-size: 13px; }
     .group span { display: block; margin-top: 3px; color: #adc0ce; font-size: 12px; }
     .group.blue { border-left: 4px solid #6baaff; }
     .group.red { border-left: 4px solid #ff7b7b; }
     .group.neutral { border-left: 4px solid #c2c9d0; }
+    .group.selected { outline: 2px solid #f4d37c; outline-offset: -2px; }
     footer { padding: 11px 20px; border-top: 1px solid #304252; color: #a7b7c5; font-size: 11px; }
     #map { min-height: 300px; background: #243440; }
     .symbol { width: 34px; height: 30px; display: grid; place-items: center; font-weight: 800; font-size: 15px; color: #fff; filter: drop-shadow(0 1px 2px #111); }
@@ -36,19 +51,32 @@
     .symbol.neutral { background: #68747c; border: 2px solid #e0e4e6; border-radius: 50%; }
     .static-symbol { width: 11px; height: 11px; border: 2px solid #fff; background: #777; border-radius: 2px; }
     .static-symbol.blue { background: #2762b0; } .static-symbol.red { background: #aa3737; }
-    @media (max-width: 700px) { .shell { grid-template-columns: 1fr; grid-template-rows: 220px minmax(0, 1fr); } aside { border-right: 0; border-bottom: 1px solid #304252; } header { padding: 9px 14px; } .summary { padding: 8px 14px; } #groups { display: none; } footer { display: none; } }
+    @media (max-width: 700px) { .shell { grid-template-columns: 1fr; grid-template-rows: 390px minmax(0, 1fr); } aside { border-right: 0; border-bottom: 1px solid #304252; } header { padding: 9px 14px; } .summary { padding: 8px 14px; } .scroll { display: none; } footer { display: none; } }
   </style>
 </head>
 <body>
   <div class="shell">
     <aside>
-      <header><h1>FoW mission viewer</h1><div class="subtle">Live DCS state · 10-second refresh</div></header>
+      <header><h1>FoW manual control</h1><div class="subtle">Raw DCS state · manual orders · 10-second refresh</div></header>
       <div class="summary">
         <div id="connection" class="stale">Connecting…</div>
         <div id="meta" class="subtle">Waiting for a snapshot</div>
+        <div id="roster" class="subtle">Observed roster: —</div>
         <button id="fit" type="button">Fit visible units</button>
       </div>
-      <div id="groups"></div>
+      <div class="order-panel">
+        <strong>Order panel</strong>
+        <label for="order-group">Ground group</label><select id="order-group"></select>
+        <label for="order-op">Order</label><select id="order-op"><option value="move">Move to map point</option><option value="hold">Hold position</option></select>
+        <div id="target">Right-click the map to stage a destination.</div>
+        <button id="send-order" type="button" disabled>Send order to DCS</button>
+        <div id="order-feedback" class="subtle">Choose a group and destination first.</div>
+      </div>
+      <div class="scroll">
+        <h2>Groups</h2><div id="groups"></div>
+        <h2>Recent orders</h2><div id="orders"></div>
+        <details><summary>Raw DCS status JSON</summary><pre id="raw-status"></pre></details>
+      </div>
       <footer>Blue = friendly · Red = opposing · Gray = neutral.<br>Symbols are simplified, not formal APP-6. OpenStreetMap shows real-world geography; DCS terrain may differ.</footer>
     </aside>
     <main id="map" aria-label="Map of mission units"></main>
@@ -68,7 +96,15 @@
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
       }).addTo(map);
       const markers = L.layerGroup().addTo(map);
-      let points = [], firstFit = true;
+      const orderLayers = L.layerGroup().addTo(map);
+      const draftLayers = L.layerGroup().addTo(map);
+      const groupSelect = document.getElementById('order-group');
+      const orderOp = document.getElementById('order-op');
+      const targetText = document.getElementById('target');
+      const sendButton = document.getElementById('send-order');
+      const feedback = document.getElementById('order-feedback');
+      let points = [], firstFit = true, selectedGroup = null, activeGround = [];
+      let targetPoint = null, latestSnapshot = null, latestOrders = [], currentSession = null;
       const sideName = side => side === 2 ? 'blue' : side === 1 ? 'red' : 'neutral';
       const categoryName = category => ({0:'aircraft',1:'helicopter',2:'ground',3:'ship',4:'train'})[category] || 'group';
       const symbolText = category => ({0:'✈',1:'H',2:'Ⅱ',3:'⚓',4:'T'})[category] || '●';
@@ -88,10 +124,96 @@
       }
       document.getElementById('fit').addEventListener('click', fit);
 
-      function draw(snapshot) {
+      function selectGroup(name) {
+        selectedGroup = name;
+        groupSelect.value = name;
+        for (const button of list.querySelectorAll('.group')) {
+          button.classList.toggle('selected', button.dataset.name === name);
+        }
+        updateDraft();
+      }
+
+      function updateDraft() {
+        const isMove = orderOp.value === 'move';
+        targetText.textContent = isMove
+          ? (targetPoint ? `Target: ${targetPoint.lat.toFixed(5)}°, ${targetPoint.lng.toFixed(5)}°` : 'Right-click the map to stage a destination.')
+          : 'Hold the selected ground group at its current position.';
+        sendButton.disabled = !selectedGroup || (isMove && !targetPoint);
+        draftLayers.clearLayers();
+        if (isMove && targetPoint) {
+          L.circleMarker(targetPoint, {radius:8, color:'#f4d37c', weight:2, fillOpacity:0.2}).addTo(draftLayers);
+          const unit = activeGround.find(g => g.name === selectedGroup)?.units?.[0];
+          if (unit && Number.isFinite(unit.lat) && Number.isFinite(unit.lon)) {
+            L.polyline([[unit.lat,unit.lon],targetPoint], {color:'#f4d37c', dashArray:'5,6', weight:2}).addTo(draftLayers);
+          }
+        }
+      }
+
+      groupSelect.addEventListener('change', () => selectGroup(groupSelect.value));
+      orderOp.addEventListener('change', updateDraft);
+      map.on('contextmenu', event => {
+        if (!activeGround.length) {
+          feedback.textContent = 'No active ground groups available.';
+          return;
+        }
+        orderOp.value = 'move';
+        targetPoint = event.latlng;
+        updateDraft();
+        feedback.textContent = `Target staged for ${selectedGroup}. Review the panel before sending.`;
+      });
+
+      sendButton.addEventListener('click', async () => {
+        if (sendButton.disabled || !selectedGroup) return;
+        const body = {op:orderOp.value, group:selectedGroup};
+        if (body.op === 'move') {
+          if (!targetPoint) return;
+          body.lat = targetPoint.lat;
+          body.lon = targetPoint.lng;
+        }
+        sendButton.disabled = true;
+        feedback.textContent = `Sending ${body.op} for ${body.group}…`;
+        try {
+          const response = await fetch('/api/orders', {
+            method:'POST', headers:{'Content-Type':'application/json','X-FoW-Viewer':'1'},
+            body:JSON.stringify(body)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || result.result || 'Order rejected');
+          feedback.textContent = `${body.group}: ${result.result}. Tracking order ${result.order_id.slice(0,8)}.`;
+          targetPoint = null;
+          updateDraft();
+          await refresh();
+        } catch (error) {
+          feedback.textContent = `Order failed: ${error.message || error}`;
+          updateDraft();
+        }
+      });
+
+      function draw(snapshot, dashboard) {
+        latestSnapshot = snapshot;
+        latestOrders = dashboard.orders || [];
+        currentSession = dashboard.session;
         markers.clearLayers();
+        orderLayers.clearLayers();
         list.replaceChildren();
         points = [];
+        activeGround = (snapshot.groups || []).filter(g => g.category === 2 && (g.coalition === 1 || g.coalition === 2) && (g.units || []).length);
+        if (!activeGround.some(g => g.name === selectedGroup)) {
+          selectedGroup = (activeGround.find(g => g.coalition === 2) || activeGround[0])?.name || null;
+        }
+        groupSelect.replaceChildren();
+        for (const group of activeGround) {
+          const option = document.createElement('option');
+          option.value = group.name;
+          option.textContent = group.name;
+          groupSelect.append(option);
+        }
+        groupSelect.value = selectedGroup || '';
+        const currentOrders = latestOrders.filter(o => o.session === currentSession);
+        const newestForGroup = new Map();
+        for (const order of currentOrders) {
+          if (!newestForGroup.has(order.group_name)) newestForGroup.set(order.group_name, order);
+        }
         let unitCount = 0;
         for (const group of snapshot.groups || []) {
           const side = sideName(group.coalition);
@@ -102,18 +224,26 @@
             const point = [unit.lat, unit.lon];
             points.push(point);
             const icon = L.divIcon({className: '', html: `<div class="symbol ${side}"><span>${symbolText(group.category)}</span></div>`, iconSize:[34,30], iconAnchor:[17,15]});
-            L.marker(point, {icon}).bindPopup(popup(unit.name, [group.name, `${side} ${categoryName(group.category)} · ${unit.type}`, `DCS x ${unit.x}, z ${unit.z}`, `${unit.lat.toFixed(5)}°, ${unit.lon.toFixed(5)}°`])).addTo(markers);
+            const marker = L.marker(point, {icon}).bindPopup(popup(unit.name, [group.name, `${side} ${categoryName(group.category)} · ${unit.type}`, `DCS x ${unit.x}, z ${unit.z}`, `${unit.lat.toFixed(5)}°, ${unit.lon.toFixed(5)}°`])).addTo(markers);
+            if (group.category === 2) marker.on('click', () => selectGroup(group.name));
           }
           const button = document.createElement('button');
           button.type = 'button';
           button.className = `group ${side}`;
+          button.dataset.name = group.name;
+          if (group.name === selectedGroup) button.classList.add('selected');
           const name = document.createElement('strong');
           name.textContent = group.name;
           const detail = document.createElement('span');
-          detail.textContent = `${side} ${categoryName(group.category)} · ${units.length} unit${units.length === 1 ? '' : 's'}`;
+          const latest = newestForGroup.get(group.name);
+          detail.textContent = `${side} ${categoryName(group.category)} · ${units.length} unit${units.length === 1 ? '' : 's'}`
+            + (latest ? ` · ${latest.op}: ${latest.state.replace('_',' ')}` : '');
           button.append(name, detail);
           if (units[0] && Number.isFinite(units[0].lat) && Number.isFinite(units[0].lon)) {
-            button.addEventListener('click', () => map.setView([units[0].lat, units[0].lon], 12));
+            button.addEventListener('click', () => {
+              if (group.category === 2) selectGroup(group.name);
+              map.setView([units[0].lat, units[0].lon], 12);
+            });
           }
           list.append(button);
         }
@@ -125,8 +255,38 @@
           const icon = L.divIcon({className: '', html: `<div class="static-symbol ${side}"></div>`, iconSize:[11,11], iconAnchor:[5,5]});
           L.marker(point, {icon}).bindPopup(popup(object.name, [`${side} static · ${object.type}`, `DCS x ${object.x}, z ${object.z}`])).addTo(markers);
         }
+        for (const order of newestForGroup.values()) {
+          if (order.op !== 'move' || order.target_lat == null || order.target_lon == null || !['accepted','at_target'].includes(order.state)) continue;
+          const group = activeGround.find(g => g.name === order.group_name);
+          if (!group?.units?.[0]) continue;
+          const unit = group.units[0];
+          const target = [order.target_lat,order.target_lon];
+          const color = group.coalition === 2 ? '#6baaff' : '#ff7b7b';
+          L.polyline([[unit.lat,unit.lon],target], {color, weight:2, dashArray:'7,5'}).addTo(orderLayers);
+          L.circleMarker(target, {radius:7, color, weight:2, fillOpacity:0.25})
+            .bindPopup(popup(`${order.group_name} target`, [`Order ${order.id.slice(0,8)}`, order.state.replace('_',' '), new Date(order.created_at*1000).toLocaleString()]))
+            .addTo(orderLayers);
+        }
+        const history = document.getElementById('orders');
+        history.replaceChildren();
+        for (const order of latestOrders.slice(0, 12)) {
+          const item = document.createElement('div');
+          item.className = `history-item ${order.state}`;
+          const title = document.createElement('strong');
+          title.textContent = `${order.group_name} · ${order.op}`;
+          const detail = document.createElement('span');
+          detail.textContent = `${order.state.replace('_',' ')} · ${new Date(order.created_at*1000).toLocaleString()}`
+            + (order.session !== currentSession ? ' · previous mission' : '');
+          item.append(title, detail);
+          history.append(item);
+        }
+        if (!latestOrders.length) history.textContent = 'No manual orders yet.';
+        document.getElementById('raw-status').textContent = JSON.stringify(snapshot, null, 2);
+        const roster = dashboard.roster || {};
+        document.getElementById('roster').textContent = `Observed roster: ${roster.present ?? 0} present · ${roster.missing ?? 0} missing (unconfirmed)`;
         if (firstFit && points.length) { fit(); firstFit = false; }
         meta.textContent = `${snapshot.groups.length} groups · ${unitCount} units · ${(snapshot.statics || []).length} statics · mission time ${Math.round(snapshot.time)}s`;
+        updateDraft();
       }
 
       async function refresh() {
@@ -134,7 +294,7 @@
           const response = await fetch('/api/status', {cache:'no-store'});
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const data = await response.json();
-          if (data.snapshot) draw(data.snapshot);
+          if (data.snapshot) draw(data.snapshot, data);
           const age = data.received_at ? Math.round(Date.now()/1000 - data.received_at) : null;
           const healthy = !data.error && age !== null && age < 30;
           connection.className = healthy ? 'live' : 'stale';

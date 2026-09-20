@@ -90,12 +90,21 @@ function FoWBridge.command(id, op, group_name, x, z)
         group:getController():setTask({ id = 'Hold', params = {} })
         return reply(id, true, 'HOLD_ACCEPTED')
     end
-    if op ~= 'move' then return reply(id, false, 'UNKNOWN_COMMAND') end
+    if op == 'move_geo' then
+        local point = coord.LLtoLO(x, z)
+        x, z = point.x, point.z
+    elseif op ~= 'move' then
+        return reply(id, false, 'UNKNOWN_COMMAND')
+    end
+    local current = lead:getPoint()
+    local dx, dz = x - current.x, z - current.z
+    if dx * dx + dz * dz > 50000 * 50000 then
+        return reply(id, false, 'TARGET_TOO_FAR')
+    end
     local destination = { x = x, y = z }
     if land.getSurfaceType(destination) ~= land.SurfaceType.LAND then
         return reply(id, false, 'TARGET_NOT_LAND')
     end
-    local current = lead:getPoint()
     local route = { points = {
         [1] = { x = current.x, y = current.z, action = 'Off Road', speed = 5, speed_locked = true },
         [2] = { x = x, y = z, action = 'Off Road', speed = 5, speed_locked = true },

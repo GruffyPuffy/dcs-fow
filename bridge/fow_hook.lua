@@ -44,7 +44,7 @@ local function handle(line)
     if request.op == 'status' then
         return mission_call(id, 'FoWBridge.status(' .. string.format('%q', id) .. ')')
     end
-    if request.op ~= 'move' and request.op ~= 'hold' then
+    if request.op ~= 'move' and request.op ~= 'move_geo' and request.op ~= 'hold' then
         return error_reply(id, 'UNKNOWN_COMMAND')
     end
     local name = request.group
@@ -53,10 +53,15 @@ local function handle(line)
     end
     local expression = 'FoWBridge.command(' .. string.format('%q', id) .. ','
         .. string.format('%q', request.op) .. ',' .. string.format('%q', name)
-    if request.op == 'move' then
+    if request.op == 'move' or request.op == 'move_geo' then
         local x, z = request.x, request.z
+        local limit_x, limit_z = 10000000, 10000000
+        if request.op == 'move_geo' then
+            x, z = request.lat, request.lon
+            limit_x, limit_z = 90, 180
+        end
         if type(x) ~= 'number' or type(z) ~= 'number' or x ~= x or z ~= z
-            or math.abs(x) > 10000000 or math.abs(z) > 10000000 then
+            or math.abs(x) > limit_x or math.abs(z) > limit_z then
             return error_reply(id, 'INVALID_DESTINATION')
         end
         expression = expression .. ',' .. string.format('%.3f', x) .. ',' .. string.format('%.3f', z)
