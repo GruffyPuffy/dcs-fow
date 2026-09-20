@@ -8,6 +8,7 @@ mission_lua="$repo_dir/missions/fow_bridge_generic.lua"
 catalog="$repo_dir/missions/spawn_catalog.json"
 unit_catalog="$repo_dir/missions/unit_catalog.json"
 air_catalog="$repo_dir/missions/air_trial.json"
+scenario="${1:-$repo_dir/missions/scenarios/caucasus_default.json}"
 output="$repo_dir/missions/fow.miz"
 container_venv=/tmp/dcs-fow-pydcs-venv
 container_generator=/tmp/dcs-fow-build-mission.py
@@ -15,13 +16,18 @@ container_lua=/tmp/fow_bridge_generic.lua
 container_catalog=/tmp/spawn_catalog.json
 container_unit_catalog=/tmp/unit_catalog.json
 container_air_catalog=/tmp/air_trial.json
+container_scenario=/tmp/fow_scenario.json
 container_air_templates=/tmp/air_templates.json
 container_airbase_catalog=/tmp/airbase_catalog.json
+container_scenario_manifest=/tmp/scenario_manifest.json
 container_output=/tmp/dcs-fow-built.miz
 
-if [[ "$#" -ne 0 ]]; then
-  echo "Usage: ./scripts/build-mission.sh" >&2
+if [[ "$#" -gt 1 ]]; then
+  echo "Usage: ./scripts/build-mission.sh [SCENARIO.json]" >&2
   exit 2
+fi
+if [[ "$scenario" != /* ]]; then
+  scenario="$repo_dir/$scenario"
 fi
 
 if [[ ! -f "$generator" ]]; then
@@ -42,6 +48,10 @@ if [[ ! -f "$unit_catalog" ]]; then
 fi
 if [[ ! -f "$air_catalog" ]]; then
   echo "Missing air trial catalog: $air_catalog" >&2
+  exit 1
+fi
+if [[ ! -f "$scenario" ]]; then
+  echo "Missing scenario: $scenario" >&2
   exit 1
 fi
 if ! command -v docker >/dev/null 2>&1; then
@@ -70,26 +80,32 @@ docker cp "$mission_lua" "$container:$container_lua"
 docker cp "$catalog" "$container:$container_catalog"
 docker cp "$unit_catalog" "$container:$container_unit_catalog"
 docker cp "$air_catalog" "$container:$container_air_catalog"
-docker exec "$container" "$container_venv/bin/python" "$container_generator" "$container_output" 2>&1 | tail -n 5
+docker cp "$scenario" "$container:$container_scenario"
+docker exec "$container" "$container_venv/bin/python" "$container_generator" "$container_scenario" "$container_output" 2>&1 | tail -n 5
 
 temporary="$(mktemp "$repo_dir/missions/.fow-build.XXXXXX.miz")"
 trap 'rm -f "$temporary"' EXIT
 docker cp "$container:$container_output" "$temporary"
 docker cp "$container:$container_air_templates" "$repo_dir/missions/air_templates.json"
 docker cp "$container:$container_airbase_catalog" "$repo_dir/missions/airbase_catalog.json"
+docker cp "$container:$container_scenario_manifest" "$repo_dir/missions/scenario_manifest.json"
 
-python3 - "$temporary" <<'PY'
-import re
+python3 - "$temporary" "$scenario" <<'PY'
+import json
 import sys
 import zipfile
 
+with open(sys.argv[2]) as stream:
+    scenario = json.load(stream)
 with zipfile.ZipFile(sys.argv[1]) as archive:
     mission = archive.read("mission").decode("utf-8")
-    warehouses = archive.read("warehouses").decode("utf-8")
-    batumi = re.search(r'\[22\]=\s*\{.{0,400}?\["coalition"\]="([A-Z]+)"', warehouses, re.S)
-    if mission.count('["skill"]="Client"') != 3 or not batumi or batumi.group(1) != "BLUE":
-        raise SystemExit("Mission validation failed: expected three Client slots and Blue Batumi")
-    for marker in ('FoW Blue Ground', 'FoW Red Ground', 'FOW_BRIDGE_READY', 'FoWSpawnCatalog', 'FoWAirCatalog'):
+    if mission.count('["skill"]="Client"') != len(scenario["client_slots"]):
+        raise SystemExit("Mission validation failed: unexpected Client slot count")
+    markers = ["FOW_BRIDGE_READY", "FoWSpawnCatalog", "FoWAirCatalog"]
+    markers += [slot["name"] for slot in scenario["client_slots"]]
+    markers += [group["name"] for group in scenario["initial_groups"]]
+    markers += [flight["name"] for flight in scenario.get("initial_flights", [])]
+    for marker in markers:
         if marker not in mission:
             raise SystemExit(f"Mission validation failed: missing {marker}")
 PY

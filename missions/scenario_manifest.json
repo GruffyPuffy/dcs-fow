@@ -1,0 +1,249 @@
+{
+  "scenario": {
+    "id": "caucasus_default",
+    "map": "Caucasus",
+    "coalitions": {
+      "blue": {
+        "country": "USA",
+        "airbases": [
+          "Batumi"
+        ]
+      },
+      "red": {
+        "country": "Russia",
+        "airbases": [
+          "Gudauta"
+        ]
+      }
+    },
+    "client_slots": [
+      {
+        "name": "FoW Hornet Air",
+        "side": "blue",
+        "aircraft": "FA-18C_hornet",
+        "base": "Batumi",
+        "start": "air",
+        "offset_m": [
+          -10000,
+          5000
+        ],
+        "altitude_m": 3000,
+        "speed_mps": 200
+      },
+      {
+        "name": "FoW Hornet Runway",
+        "side": "blue",
+        "aircraft": "FA-18C_hornet",
+        "base": "Batumi",
+        "start": "runway"
+      },
+      {
+        "name": "FoW Hornet Ramp",
+        "side": "blue",
+        "aircraft": "FA-18C_hornet",
+        "base": "Batumi",
+        "start": "cold",
+        "parking": "10"
+      }
+    ],
+    "initial_groups": [
+      {
+        "name": "FoW Blue Batumi Air Defense",
+        "side": "blue",
+        "role": "base_air_defense",
+        "package": "sam",
+        "base": "Batumi",
+        "offset_m": [
+          3500,
+          3500
+        ]
+      },
+      {
+        "name": "FoW Blue Batumi Security",
+        "side": "blue",
+        "role": "base_security",
+        "package": "platoon",
+        "base": "Batumi",
+        "offset_m": [
+          2200,
+          1800
+        ]
+      },
+      {
+        "name": "FoW Blue Batumi Logistics",
+        "side": "blue",
+        "role": "logistics",
+        "package": "vehicle",
+        "base": "Batumi",
+        "offset_m": [
+          1200,
+          2400
+        ]
+      },
+      {
+        "name": "FoW Red Gudauta Air Defense",
+        "side": "red",
+        "role": "base_air_defense",
+        "package": "sam",
+        "base": "Gudauta",
+        "offset_m": [
+          3500,
+          3500
+        ]
+      },
+      {
+        "name": "FoW Red Gudauta Security",
+        "side": "red",
+        "role": "base_security",
+        "package": "platoon",
+        "base": "Gudauta",
+        "offset_m": [
+          2200,
+          1800
+        ]
+      },
+      {
+        "name": "FoW Red Gudauta Logistics",
+        "side": "red",
+        "role": "logistics",
+        "package": "vehicle",
+        "base": "Gudauta",
+        "offset_m": [
+          1200,
+          2400
+        ]
+      }
+    ],
+    "initial_flights": [
+      {
+        "name": "FoW Blue Overlord",
+        "side": "blue",
+        "role": "awacs",
+        "aircraft": "E_3A",
+        "base": "Batumi",
+        "track_offset_m": [
+          -70000,
+          50000
+        ],
+        "track_length_m": 50000,
+        "heading_deg": 0,
+        "altitude_m": 9000,
+        "speed_kph": 650,
+        "frequency_mhz": 251.0
+      },
+      {
+        "name": "FoW Blue Texaco",
+        "side": "blue",
+        "role": "tanker",
+        "aircraft": "KC135MPRS",
+        "base": "Batumi",
+        "track_offset_m": [
+          -45000,
+          25000
+        ],
+        "track_length_m": 40000,
+        "heading_deg": 0,
+        "altitude_m": 6500,
+        "speed_kph": 620,
+        "frequency_mhz": 253.0,
+        "tacan": "31Y"
+      },
+      {
+        "name": "FoW Blue Batumi CAP",
+        "side": "blue",
+        "role": "cap",
+        "aircraft": "FA_18C_hornet",
+        "base": "Batumi",
+        "track_offsets_m": [
+          [
+            -15000,
+            30000
+          ],
+          [
+            35000,
+            30000
+          ]
+        ],
+        "altitude_m": 7500,
+        "speed_kph": 850,
+        "engage_range_m": 60000,
+        "group_size": 2
+      },
+      {
+        "name": "FoW Red Mainstay",
+        "side": "red",
+        "role": "awacs",
+        "aircraft": "A_50",
+        "base": "Gudauta",
+        "track_offset_m": [
+          70000,
+          50000
+        ],
+        "track_length_m": 50000,
+        "heading_deg": 180,
+        "altitude_m": 9000,
+        "speed_kph": 650,
+        "frequency_mhz": 252.0
+      },
+      {
+        "name": "FoW Red Shell",
+        "side": "red",
+        "role": "tanker",
+        "aircraft": "IL_78M",
+        "base": "Gudauta",
+        "track_offset_m": [
+          45000,
+          25000
+        ],
+        "track_length_m": 40000,
+        "heading_deg": 180,
+        "altitude_m": 6500,
+        "speed_kph": 620,
+        "frequency_mhz": 254.0,
+        "tacan": "32Y"
+      },
+      {
+        "name": "FoW Red Gudauta CAP",
+        "side": "red",
+        "role": "cap",
+        "aircraft": "MiG_29S",
+        "base": "Gudauta",
+        "track_offsets_m": [
+          [
+            15000,
+            30000
+          ],
+          [
+            -35000,
+            30000
+          ]
+        ],
+        "altitude_m": 7500,
+        "speed_kph": 850,
+        "engage_range_m": 60000,
+        "group_size": 2
+      }
+    ],
+    "boundaries": [],
+    "reserves": {
+      "blue": {},
+      "red": {}
+    }
+  },
+  "airbases": {
+    "blue": {
+      "Batumi": {
+        "label": "Batumi",
+        "lat": 41.609597,
+        "lon": 41.600237
+      }
+    },
+    "red": {
+      "Gudauta": {
+        "label": "Gudauta",
+        "lat": 43.114327,
+        "lon": 40.569741
+      }
+    }
+  }
+}

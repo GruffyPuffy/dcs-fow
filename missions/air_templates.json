@@ -26,7 +26,7 @@
             "alt": 7000,
             "alt_type": "BARO",
             "psi": 0,
-            "onboard_num": "659",
+            "onboard_num": "199",
             "speed": 69.4444444444444,
             "hardpoint_racks": true,
             "AddPropAircraft": {
@@ -64,7 +64,7 @@
               "1": 1,
               "2": 1,
               "3": 1,
-              "name": "Colt11"
+              "name": "Dodge11"
             }
           }
         },
@@ -136,7 +136,7 @@
             "alt": 5000,
             "alt_type": "BARO",
             "psi": 0,
-            "onboard_num": "581",
+            "onboard_num": "313",
             "speed": 58.3333333333333,
             "hardpoint_racks": true,
             "AddPropAircraft": {
@@ -165,7 +165,7 @@
               "1": 1,
               "2": 1,
               "3": 1,
-              "name": "Dodge11"
+              "name": "Ford11"
             }
           }
         },
@@ -239,7 +239,7 @@
             "alt": 7000,
             "alt_type": "BARO",
             "psi": 0,
-            "onboard_num": "833",
+            "onboard_num": "178",
             "speed": 69.4444444444444,
             "hardpoint_racks": true,
             "payload": {
@@ -266,7 +266,7 @@
               "1": 1,
               "2": 1,
               "3": 1,
-              "name": "Enfield11"
+              "name": "Springfield11"
             }
           }
         },
@@ -338,7 +338,7 @@
             "alt": 5000,
             "alt_type": "BARO",
             "psi": 0,
-            "onboard_num": "370",
+            "onboard_num": "711",
             "speed": 58.3333333333333,
             "hardpoint_racks": true,
             "payload": {
@@ -359,7 +359,7 @@
               "1": 1,
               "2": 1,
               "3": 1,
-              "name": "Springfield11"
+              "name": "Uzi11"
             }
           }
         },

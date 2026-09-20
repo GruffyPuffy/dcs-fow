@@ -1,7 +1,6 @@
-"""Build the single Caucasus FoW mission (requires pydcs 0.15.0).
+"""Build a configured FoW mission (requires pydcs 0.15.0).
 
-Run: python build_mission.py fow.miz
-Keep one mission and add or change client slots here as the project develops.
+Run: python build_mission.py SCENARIO.json OUTPUT.miz
 """
 
 from pathlib import Path
@@ -14,6 +13,116 @@ import dcs
 def client(group: dcs.unitgroup.FlyingGroup, name: str) -> None:
     group.units[0].skill = dcs.unit.Skill.Client
     group.units[0].name = name
+
+
+def aircraft_type(name: str):
+    aircraft = getattr(dcs.planes, name, None) or dcs.planes.plane_map.get(name)
+    if aircraft is None:
+        raise ValueError(f"Unknown aircraft type: {name}")
+    return aircraft
+
+
+def offset_point(mission: dcs.Mission, airport, offset: list[float]) -> dcs.Point:
+    return dcs.Point(
+        airport.position.x + offset[0],
+        airport.position.y + offset[1],
+        mission.terrain,
+    )
+
+
+def add_client_slots(mission: dcs.Mission, scenario: dict,
+                     countries: dict, airports: dict) -> None:
+    start_types = {
+        "runway": dcs.mission.StartType.Runway,
+        "hot": dcs.mission.StartType.Warm,
+        "cold": dcs.mission.StartType.Cold,
+    }
+    for slot in scenario["client_slots"]:
+        country = countries[slot["side"]]
+        airport = airports[slot["base"]]
+        aircraft = aircraft_type(slot["aircraft"])
+        if slot["start"] == "air":
+            group = mission.flight_group_inflight(
+                country=country, name=slot["name"], aircraft_type=aircraft,
+                position=offset_point(mission, airport, slot.get("offset_m", [0, 0])),
+                altitude=slot["altitude_m"], speed=slot["speed_mps"], group_size=1,
+            )
+        else:
+            parking_slots = None
+            if slot.get("parking"):
+                parking_slots = [next(
+                    parking for parking in airport.parking_slots
+                    if parking.slot_name == slot["parking"]
+                )]
+            group = mission.flight_group_from_airport(
+                country=country, name=slot["name"], aircraft_type=aircraft,
+                airport=airport, start_type=start_types[slot["start"]],
+                group_size=1, parking_slots=parking_slots,
+            )
+        client(group, slot["name"])
+
+
+def add_initial_groups(mission: dcs.Mission, scenario: dict,
+                       countries: dict, airports: dict, catalog: dict) -> None:
+    for configured in scenario["initial_groups"]:
+        package = catalog[configured["side"]][configured["package"]]
+        if not package["units"]:
+            raise ValueError(f"Initial group {configured['name']} has no units")
+        position = offset_point(mission, airports[configured["base"]],
+                                configured.get("offset_m", [0, 0]))
+        group = mission.vehicle_group_platoon(
+            country=countries[configured["side"]],
+            name=configured["name"],
+            types=[dcs.vehicles.vehicle_map[unit["type"]] for unit in package["units"]],
+            position=position,
+        )
+        for unit, unit_config in zip(group.units, package["units"]):
+            unit.position = offset_point(
+                mission, airports[configured["base"]],
+                [configured.get("offset_m", [0, 0])[0] + unit_config.get("dx", 0),
+                 configured.get("offset_m", [0, 0])[1] + unit_config.get("dy", 0)],
+            )
+
+
+def add_initial_flights(mission: dcs.Mission, scenario: dict,
+                        countries: dict, airports: dict) -> None:
+    for configured in scenario.get("initial_flights", []):
+        country = countries[configured["side"]]
+        airport = airports[configured["base"]]
+        aircraft = aircraft_type(configured["aircraft"])
+        role = configured["role"]
+        if role in ("awacs", "tanker"):
+            position = offset_point(mission, airport, configured["track_offset_m"])
+            common = {
+                "country": country,
+                "name": configured["name"],
+                "plane_type": aircraft,
+                "airport": None,
+                "position": position,
+                "race_distance": configured["track_length_m"],
+                "heading": configured["heading_deg"],
+                "altitude": configured["altitude_m"],
+                "speed": configured["speed_kph"],
+                "frequency": configured["frequency_mhz"],
+            }
+            if role == "awacs":
+                group = mission.awacs_flight(**common)
+            else:
+                group = mission.refuel_flight(
+                    **common, tacanchannel=configured["tacan"])
+        elif role == "cap":
+            point1 = offset_point(mission, airport, configured["track_offsets_m"][0])
+            point2 = offset_point(mission, airport, configured["track_offsets_m"][1])
+            group = mission.patrol_flight(
+                country=country, name=configured["name"], patrol_type=aircraft,
+                airport=None, pos1=point1, pos2=point2,
+                speed=configured["speed_kph"], altitude=configured["altitude_m"],
+                max_engage_distance=configured["engage_range_m"],
+                group_size=configured.get("group_size", 2),
+            )
+        else:
+            raise ValueError(f"Unknown initial flight role: {role}")
+        group.set_skill(dcs.unit.Skill.High)
 
 
 def lua_literal(value):
@@ -33,17 +142,23 @@ def lua_literal(value):
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        raise SystemExit("Usage: python build_mission.py OUTPUT.miz")
+    if len(sys.argv) != 3:
+        raise SystemExit("Usage: python build_mission.py SCENARIO.json OUTPUT.miz")
 
-    output = Path(sys.argv[1])
+    scenario = json.loads(Path(sys.argv[1]).read_text())
+    output = Path(sys.argv[2])
+    if scenario.get("map") != "Caucasus":
+        raise ValueError("Only the Caucasus terrain is currently supported")
     mission = dcs.Mission()
-    usa = mission.country("USA")
-    batumi = mission.terrain.airports["Batumi"]
-    # pydcs leaves every airfield neutral by default. Ground client slots at
-    # Batumi belong to Blue, so the airfield warehouse must belong to Blue too.
-    batumi.set_blue()
-    hornet = dcs.planes.FA_18C_hornet
+    countries = {
+        side: mission.country(config["country"])
+        for side, config in scenario["coalitions"].items()
+    }
+    airports = mission.terrain.airports
+    for side, config in scenario["coalitions"].items():
+        for airbase_name in config["airbases"]:
+            getattr(airports[airbase_name], f"set_{side}")()
+
     catalog = json.loads(Path(__file__).with_name("spawn_catalog.json").read_text())
     unit_catalog = json.loads(Path(__file__).with_name("unit_catalog.json").read_text())
     for side in ("blue", "red"):
@@ -52,61 +167,9 @@ def main() -> None:
             raise ValueError(f"Duplicate spawn IDs for {side}: {overlap}")
         catalog[side].update(unit_catalog[side])
 
-    client(
-        mission.flight_group_inflight(
-            country=usa,
-            name="FoW Hornet Air",
-            aircraft_type=hornet,
-            position=dcs.Point(
-                batumi.position.x - 10000,
-                batumi.position.y + 5000,
-                mission.terrain,
-            ),
-            altitude=3000,
-            speed=200,
-            group_size=1,
-        ),
-        "FoW Hornet Air",
-    )
-    client(
-        mission.flight_group_from_airport(
-            country=usa,
-            name="FoW Hornet Runway",
-            aircraft_type=hornet,
-            airport=batumi,
-            start_type=dcs.mission.StartType.Runway,
-            group_size=1,
-        ),
-        "FoW Hornet Runway",
-    )
-    stand_10 = next(slot for slot in batumi.parking_slots if slot.slot_name == "10")
-    client(
-        mission.flight_group_from_airport(
-            country=usa,
-            name="FoW Hornet Ramp",
-            aircraft_type=hornet,
-            airport=batumi,
-            start_type=dcs.mission.StartType.Cold,
-            group_size=1,
-            parking_slots=[stand_10],
-        ),
-        "FoW Hornet Ramp",
-    )
-
-    # One harmless vehicle per side, far apart. Test orders use these groups.
-    gudauta = mission.terrain.airports["Gudauta"]
-    mission.vehicle_group(
-        country=usa,
-        name="FoW Blue Ground",
-        _type=dcs.vehicles.Unarmed.M_818,
-        position=dcs.Point(batumi.position.x + 2500, batumi.position.y + 2500, mission.terrain),
-    )
-    mission.vehicle_group(
-        country=mission.country("Russia"),
-        name="FoW Red Ground",
-        _type=dcs.vehicles.Unarmed.Ural_375,
-        position=dcs.Point(gudauta.position.x + 2500, gudauta.position.y + 2500, mission.terrain),
-    )
+    add_client_slots(mission, scenario, countries, airports)
+    add_initial_groups(mission, scenario, countries, airports, catalog)
+    add_initial_flights(mission, scenario, countries, airports)
 
     # Capture airbases for RTB catalog
     airbase_catalog = {"blue": {}, "red": {}}
@@ -131,12 +194,11 @@ def main() -> None:
     air_config = json.loads(Path(__file__).with_name("air_trial.json").read_text())
     air_catalog["loadouts"] = air_config["loadouts"]
     
-    for side, country, airport, aircraft in (
-        ("blue", usa, batumi, dcs.planes.FA_18C_hornet),
-        ("red", mission.country("Russia"), gudauta, dcs.planes.MiG_29S),
-    ):
+    for side, country in countries.items():
+        airport = airports[scenario["coalitions"][side]["airbases"][0]]
         air_catalog["presets"][side] = {}
         for preset_name, preset_config in air_config["presets"][side].items():
+            aircraft = aircraft_type(preset_config["aircraft"])
             group = mission.flight_group_inflight(
                 country=country, name=f"FoW {side} {preset_name} template", aircraft_type=aircraft,
                 position=dcs.Point(airport.position.x - 15000, airport.position.y + 5000, mission.terrain),
@@ -181,6 +243,10 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.with_name("air_templates.json").write_text(json.dumps(air_catalog["presets"], indent=2))
     output.with_name("airbase_catalog.json").write_text(json.dumps(airbase_catalog, indent=2))
+    output.with_name("scenario_manifest.json").write_text(json.dumps({
+        "scenario": scenario,
+        "airbases": airbase_catalog,
+    }, indent=2))
     mission.save(str(output))
     print(output)
 
