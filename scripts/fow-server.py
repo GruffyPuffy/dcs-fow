@@ -391,6 +391,13 @@ def main() -> None:
                             "lat": lat + (approach["lat"] - lat) * fraction,
                             "lon": lon + (approach["lon"] - lon) * fraction,
                         }
+                approach_distance = distance_m(lat, lon, approach["lat"], approach["lon"])
+                stop_distance = min(1200, approach_distance * 0.5)
+                stop_fraction = stop_distance / approach_distance if approach_distance else 0
+                assault_destination = (
+                    lat + (approach["lat"] - lat) * stop_fraction,
+                    lon + (approach["lon"] - lon) * stop_fraction,
+                )
             elif op == "defend_base":
                 positions = target_config.get("defense_positions", [])
                 if not positions:
@@ -534,7 +541,7 @@ def main() -> None:
                     spawn_data = dcs_structures.build_ground_spawn_data(
                         side, template_config, actual_name,
                         approach["lat"], approach["lon"],
-                        (airbase["lat"], airbase["lon"]) if op == "attack_base" else None)
+                        assault_destination if op == "attack_base" else None)
                     result = exchange(args.bridge_host, args.bridge_port, "spawn_group",
                                       request_id=order_id, **spawn_data)
                     if result.get("ok"):
