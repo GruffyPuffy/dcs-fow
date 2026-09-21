@@ -1,42 +1,490 @@
 {
   "loadouts": {
     "blue": {
-      "cap_light": {
-        "label": "CAP Light (2x AIM-120C, 2x AIM-9X)",
+      "hornet_cap": {
+        "label": "F/A-18C CAP stores",
+        "aircraft": "FA_18C_hornet",
         "pylons": {
-          "1": {"CLSID": "{FPU_8A_FUEL_TANk}", "num": 1},
-          "2": {"CLSID": "{LAU-115 - AIM-7M}", "num": 2},
-          "3": {"CLSID": "{LAU-115 - AIM-7M}", "num": 3},
-          "7": {"CLSID": "{LAU-115 - AIM-7M}", "num": 7},
-          "8": {"CLSID": "{LAU-115 - AIM-7M}", "num": 8},
-          "9": {"CLSID": "{FPU_8A_FUEL_TANk}", "num": 9}
+          "1": {
+            "num": 1,
+            "CLSID": "{6CEB49FC-DED8-4DED-B053-E1F033FF72D3}"
+          },
+          "4": {
+            "num": 4,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "6": {
+            "num": 6,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "9": {
+            "num": 9,
+            "CLSID": "{6CEB49FC-DED8-4DED-B053-E1F033FF72D3}"
+          }
         }
       },
-      "patrol_clean": {
-        "label": "Patrol Clean (fuel tanks only)",
+      "hornet_patrol": {
+        "label": "Clean / internal fuel",
+        "aircraft": "FA_18C_hornet",
+        "pylons": {}
+      },
+      "eagle_cap": {
+        "label": "F-15C CAP stores",
+        "aircraft": "F_15C",
         "pylons": {
-          "1": {"CLSID": "{FPU_8A_FUEL_TANk}", "num": 1},
-          "5": {"CLSID": "{FPU_8A_FUEL_TANk}", "num": 5},
-          "9": {"CLSID": "{FPU_8A_FUEL_TANk}", "num": 9}
+          "1": {
+            "num": 1,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "3": {
+            "num": 3,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "4": {
+            "num": 4,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "5": {
+            "num": 5,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "7": {
+            "num": 7,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "8": {
+            "num": 8,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "9": {
+            "num": 9,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "11": {
+            "num": 11,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          }
         }
+      },
+      "viper_cap": {
+        "label": "F-16C CAP stores",
+        "aircraft": "F_16C_50",
+        "pylons": {
+          "1": {
+            "num": 1,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "2": {
+            "num": 2,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "3": {
+            "num": 3,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "7": {
+            "num": 7,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "8": {
+            "num": 8,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          },
+          "9": {
+            "num": 9,
+            "CLSID": "{40EF17B7-F508-45de-8566-6FFECC0C1AB8}"
+          }
+        }
+      },
+      "tomcat_cap": {
+        "label": "F-14B CAP stores",
+        "aircraft": "F_14B",
+        "pylons": {
+          "2": {
+            "num": 2,
+            "CLSID": "{SHOULDER AIM_54C_Mk47 L}"
+          },
+          "4": {
+            "num": 4,
+            "CLSID": "{AIM_54C_Mk47}"
+          },
+          "5": {
+            "num": 5,
+            "CLSID": "{AIM_54C_Mk47}"
+          },
+          "6": {
+            "num": 6,
+            "CLSID": "{AIM_54C_Mk47}"
+          },
+          "7": {
+            "num": 7,
+            "CLSID": "{AIM_54C_Mk47}"
+          },
+          "9": {
+            "num": 9,
+            "CLSID": "{SHOULDER AIM_54C_Mk47 R}"
+          }
+        }
+      },
+      "warthog_cas": {
+        "label": "A-10C CAS stores",
+        "aircraft": "A_10C",
+        "pylons": {
+          "1": {
+            "num": 1,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "2": {
+            "num": 2,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "3": {
+            "num": 3,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "4": {
+            "num": 4,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "5": {
+            "num": 5,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "6": {
+            "num": 6,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "7": {
+            "num": 7,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "8": {
+            "num": 8,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "9": {
+            "num": 9,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "10": {
+            "num": 10,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "11": {
+            "num": 11,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          }
+        }
+      },
+      "harrier_cas": {
+        "label": "AV-8B CAS stores",
+        "aircraft": "AV8BNA",
+        "pylons": {
+          "1": {
+            "num": 1,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "2": {
+            "num": 2,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "3": {
+            "num": 3,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "6": {
+            "num": 6,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "7": {
+            "num": 7,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          },
+          "8": {
+            "num": 8,
+            "CLSID": "{BCE4E030-38E9-423E-98ED-24BE3DA87C32}"
+          }
+        }
+      },
+      "hercules_transport": {
+        "label": "Clean / internal fuel",
+        "aircraft": "C_130",
+        "pylons": {}
+      },
+      "globemaster_transport": {
+        "label": "Clean / internal fuel",
+        "aircraft": "C_17A",
+        "pylons": {}
+      },
+      "sentry_awacs": {
+        "label": "Clean / internal fuel",
+        "aircraft": "E_3A",
+        "pylons": {}
+      },
+      "stratotanker_tanker": {
+        "label": "Clean / internal fuel",
+        "aircraft": "KC_135",
+        "pylons": {}
+      },
+      "mprs_tanker": {
+        "label": "Clean / internal fuel",
+        "aircraft": "KC135MPRS",
+        "pylons": {}
       }
     },
     "red": {
-      "cap_light": {
-        "label": "CAP Light (2x R-27R, 2x R-73)",
+      "mig29_cap": {
+        "label": "MiG-29S CAP stores",
+        "aircraft": "MiG_29S",
         "pylons": {
-          "1": {"CLSID": "{R-73}", "num": 1},
-          "2": {"CLSID": "{R-27R}", "num": 2},
-          "6": {"CLSID": "{R-27R}", "num": 6},
-          "7": {"CLSID": "{R-73}", "num": 7}
+          "1": {
+            "num": 1,
+            "CLSID": "{B4C01D60-A8A3-4237-BD72-CA7655BC0FE9}"
+          },
+          "2": {
+            "num": 2,
+            "CLSID": "{B4C01D60-A8A3-4237-BD72-CA7655BC0FE9}"
+          },
+          "3": {
+            "num": 3,
+            "CLSID": "{B4C01D60-A8A3-4237-BD72-CA7655BC0FE9}"
+          },
+          "5": {
+            "num": 5,
+            "CLSID": "{B4C01D60-A8A3-4237-BD72-CA7655BC0FE9}"
+          },
+          "6": {
+            "num": 6,
+            "CLSID": "{B4C01D60-A8A3-4237-BD72-CA7655BC0FE9}"
+          },
+          "7": {
+            "num": 7,
+            "CLSID": "{B4C01D60-A8A3-4237-BD72-CA7655BC0FE9}"
+          }
         }
       },
-      "patrol_clean": {
-        "label": "Patrol Clean (fuel tanks only)",
+      "mig29_patrol": {
+        "label": "Clean / internal fuel",
+        "aircraft": "MiG_29S",
+        "pylons": {}
+      },
+      "flanker_cap": {
+        "label": "Su-27 CAP stores",
+        "aircraft": "Su_27",
         "pylons": {
-          "3": {"CLSID": "{PTB-800}", "num": 3},
-          "5": {"CLSID": "{PTB-800}", "num": 5}
+          "1": {
+            "num": 1,
+            "CLSID": "{FBC29BFE-3D24-4C64-B81D-941239D12249}"
+          },
+          "2": {
+            "num": 2,
+            "CLSID": "{FBC29BFE-3D24-4C64-B81D-941239D12249}"
+          },
+          "3": {
+            "num": 3,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "4": {
+            "num": 4,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "5": {
+            "num": 5,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "6": {
+            "num": 6,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "7": {
+            "num": 7,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "8": {
+            "num": 8,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "9": {
+            "num": 9,
+            "CLSID": "{FBC29BFE-3D24-4C64-B81D-941239D12249}"
+          },
+          "10": {
+            "num": 10,
+            "CLSID": "{FBC29BFE-3D24-4C64-B81D-941239D12249}"
+          }
         }
+      },
+      "sea_flanker_cap": {
+        "label": "Su-33 CAP stores",
+        "aircraft": "Su_33",
+        "pylons": {
+          "1": {
+            "num": 1,
+            "CLSID": "{FBC29BFE-3D24-4C64-B81D-941239D12249}"
+          },
+          "2": {
+            "num": 2,
+            "CLSID": "{FBC29BFE-3D24-4C64-B81D-941239D12249}"
+          },
+          "3": {
+            "num": 3,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "4": {
+            "num": 4,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "5": {
+            "num": 5,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "6": {
+            "num": 6,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "7": {
+            "num": 7,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "8": {
+            "num": 8,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "9": {
+            "num": 9,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "10": {
+            "num": 10,
+            "CLSID": "{E8069896-8435-4B90-95C0-01A03AE6E400}"
+          },
+          "11": {
+            "num": 11,
+            "CLSID": "{FBC29BFE-3D24-4C64-B81D-941239D12249}"
+          },
+          "12": {
+            "num": 12,
+            "CLSID": "{FBC29BFE-3D24-4C64-B81D-941239D12249}"
+          }
+        }
+      },
+      "foxhound_cap": {
+        "label": "MiG-31 CAP stores",
+        "aircraft": "MiG_31",
+        "pylons": {
+          "2": {
+            "num": 2,
+            "CLSID": "{F1243568-8EF0-49D4-9CB5-4DA90D92BC1D}"
+          },
+          "3": {
+            "num": 3,
+            "CLSID": "{F1243568-8EF0-49D4-9CB5-4DA90D92BC1D}"
+          },
+          "4": {
+            "num": 4,
+            "CLSID": "{F1243568-8EF0-49D4-9CB5-4DA90D92BC1D}"
+          },
+          "5": {
+            "num": 5,
+            "CLSID": "{F1243568-8EF0-49D4-9CB5-4DA90D92BC1D}"
+          }
+        }
+      },
+      "frogfoot_cas": {
+        "label": "Su-25T CAS stores",
+        "aircraft": "Su_25T",
+        "pylons": {
+          "2": {
+            "num": 2,
+            "CLSID": "{3C612111-C7AD-476E-8A8E-2485812F4E5C}"
+          },
+          "3": {
+            "num": 3,
+            "CLSID": "{79D73885-0801-45a9-917F-C90FE1CE3DFC}"
+          },
+          "4": {
+            "num": 4,
+            "CLSID": "{79D73885-0801-45a9-917F-C90FE1CE3DFC}"
+          },
+          "5": {
+            "num": 5,
+            "CLSID": "{601C99F7-9AF3-4ed7-A565-F8B8EC0D7AAC}"
+          },
+          "7": {
+            "num": 7,
+            "CLSID": "{601C99F7-9AF3-4ed7-A565-F8B8EC0D7AAC}"
+          },
+          "8": {
+            "num": 8,
+            "CLSID": "{79D73885-0801-45a9-917F-C90FE1CE3DFC}"
+          },
+          "9": {
+            "num": 9,
+            "CLSID": "{79D73885-0801-45a9-917F-C90FE1CE3DFC}"
+          },
+          "10": {
+            "num": 10,
+            "CLSID": "{3C612111-C7AD-476E-8A8E-2485812F4E5C}"
+          }
+        }
+      },
+      "fencer_cas": {
+        "label": "Su-24M CAS stores",
+        "aircraft": "Su_24M",
+        "pylons": {
+          "1": {
+            "num": 1,
+            "CLSID": "{6DADF342-D4BA-4D8A-B081-BA928C4AF86D}"
+          },
+          "2": {
+            "num": 2,
+            "CLSID": "{6DADF342-D4BA-4D8A-B081-BA928C4AF86D}"
+          },
+          "3": {
+            "num": 3,
+            "CLSID": "{3C612111-C7AD-476E-8A8E-2485812F4E5C}"
+          },
+          "4": {
+            "num": 4,
+            "CLSID": "{3C612111-C7AD-476E-8A8E-2485812F4E5C}"
+          },
+          "5": {
+            "num": 5,
+            "CLSID": "{3C612111-C7AD-476E-8A8E-2485812F4E5C}"
+          },
+          "6": {
+            "num": 6,
+            "CLSID": "{3C612111-C7AD-476E-8A8E-2485812F4E5C}"
+          },
+          "7": {
+            "num": 7,
+            "CLSID": "{6DADF342-D4BA-4D8A-B081-BA928C4AF86D}"
+          },
+          "8": {
+            "num": 8,
+            "CLSID": "{6DADF342-D4BA-4D8A-B081-BA928C4AF86D}"
+          }
+        }
+      },
+      "candid_transport": {
+        "label": "Clean / internal fuel",
+        "aircraft": "IL_76MD",
+        "pylons": {}
+      },
+      "curl_transport": {
+        "label": "Clean / internal fuel",
+        "aircraft": "An_26B",
+        "pylons": {}
+      },
+      "mainstay_awacs": {
+        "label": "Clean / internal fuel",
+        "aircraft": "A_50",
+        "pylons": {}
+      },
+      "midas_tanker": {
+        "label": "Clean / internal fuel",
+        "aircraft": "IL_78M",
+        "pylons": {}
       }
     }
   },
@@ -45,48 +493,303 @@
       "hornet_cap": {
         "label": "F/A-18C CAP",
         "aircraft": "FA_18C_hornet",
+        "dcs_type": "FA-18C_hornet",
+        "role": "CAP",
         "start_type": "air",
         "mission_type": "CAP",
         "altitude_m": 7000,
-        "speed_mps": 250,
-        "loadout": "cap_light",
+        "speed_mps": 220,
+        "loadout": "hornet_cap",
         "default_rtb_base": "Batumi",
-        "orbit_radius_m": 18520
+        "description": "CAP air start. Aircraft-specific stores; live DCS validation pending."
       },
       "hornet_patrol": {
         "label": "F/A-18C Patrol",
         "aircraft": "FA_18C_hornet",
+        "dcs_type": "FA-18C_hornet",
+        "role": "patrol",
         "start_type": "air",
         "mission_type": "patrol",
+        "altitude_m": 7000,
+        "speed_mps": 220,
+        "loadout": "hornet_patrol",
+        "default_rtb_base": "Batumi",
+        "description": "Clean aircraft orbiting the staged point."
+      },
+      "eagle_cap": {
+        "label": "F-15C CAP",
+        "aircraft": "F_15C",
+        "dcs_type": "F-15C",
+        "role": "CAP",
+        "start_type": "air",
+        "mission_type": "CAP",
+        "altitude_m": 7000,
+        "speed_mps": 220,
+        "loadout": "eagle_cap",
+        "default_rtb_base": "Batumi",
+        "description": "CAP air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "viper_cap": {
+        "label": "F-16C CAP",
+        "aircraft": "F_16C_50",
+        "dcs_type": "F-16C_50",
+        "role": "CAP",
+        "start_type": "air",
+        "mission_type": "CAP",
+        "altitude_m": 7000,
+        "speed_mps": 220,
+        "loadout": "viper_cap",
+        "default_rtb_base": "Batumi",
+        "description": "CAP air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "tomcat_cap": {
+        "label": "F-14B CAP",
+        "aircraft": "F_14B",
+        "dcs_type": "F-14B",
+        "role": "CAP",
+        "start_type": "air",
+        "mission_type": "CAP",
+        "altitude_m": 7000,
+        "speed_mps": 220,
+        "loadout": "tomcat_cap",
+        "default_rtb_base": "Batumi",
+        "description": "CAP air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "warthog_cas": {
+        "label": "A-10C CAS",
+        "aircraft": "A_10C",
+        "dcs_type": "A-10C",
+        "role": "CAS",
+        "start_type": "air",
+        "mission_type": "CAS",
+        "altitude_m": 5000,
+        "speed_mps": 150,
+        "loadout": "warthog_cas",
+        "default_rtb_base": "Batumi",
+        "description": "CAS air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "harrier_cas": {
+        "label": "AV-8B CAS",
+        "aircraft": "AV8BNA",
+        "dcs_type": "AV8BNA",
+        "role": "CAS",
+        "start_type": "air",
+        "mission_type": "CAS",
+        "altitude_m": 5000,
+        "speed_mps": 220,
+        "loadout": "harrier_cas",
+        "default_rtb_base": "Batumi",
+        "description": "CAS air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "hercules_transport": {
+        "label": "C-130 transport",
+        "aircraft": "C_130",
+        "dcs_type": "C-130",
+        "role": "transport",
+        "start_type": "air",
+        "mission_type": "transport",
+        "altitude_m": 5000,
+        "speed_mps": 150,
+        "loadout": "hercules_transport",
+        "default_rtb_base": "Batumi",
+        "description": "Transport air start; native DCS cargo behavior still needs validation."
+      },
+      "globemaster_transport": {
+        "label": "C-17A transport",
+        "aircraft": "C_17A",
+        "dcs_type": "C-17A",
+        "role": "transport",
+        "start_type": "air",
+        "mission_type": "transport",
         "altitude_m": 5000,
         "speed_mps": 210,
-        "loadout": "patrol_clean",
+        "loadout": "globemaster_transport",
         "default_rtb_base": "Batumi",
-        "orbit_radius_m": 18520
+        "description": "Transport air start; native DCS cargo behavior still needs validation."
+      },
+      "sentry_awacs": {
+        "label": "E-3A AWACS",
+        "aircraft": "E_3A",
+        "dcs_type": "E-3A",
+        "role": "AWACS",
+        "start_type": "air",
+        "mission_type": "AWACS",
+        "altitude_m": 7000,
+        "speed_mps": 180,
+        "loadout": "sentry_awacs",
+        "default_rtb_base": "Batumi",
+        "description": "AWACS air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "stratotanker_tanker": {
+        "label": "KC-135 (boom) tanker",
+        "aircraft": "KC_135",
+        "dcs_type": "KC-135",
+        "role": "tanker",
+        "start_type": "air",
+        "mission_type": "tanker",
+        "altitude_m": 7000,
+        "speed_mps": 180,
+        "loadout": "stratotanker_tanker",
+        "default_rtb_base": "Batumi",
+        "description": "tanker air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "mprs_tanker": {
+        "label": "KC-135 MPRS (drogue) tanker",
+        "aircraft": "KC135MPRS",
+        "dcs_type": "KC135MPRS",
+        "role": "tanker",
+        "start_type": "air",
+        "mission_type": "tanker",
+        "altitude_m": 7000,
+        "speed_mps": 180,
+        "loadout": "mprs_tanker",
+        "default_rtb_base": "Batumi",
+        "description": "tanker air start. Aircraft-specific stores; live DCS validation pending."
       }
     },
     "red": {
       "mig29_cap": {
         "label": "MiG-29S CAP",
         "aircraft": "MiG_29S",
+        "dcs_type": "MiG-29S",
+        "role": "CAP",
         "start_type": "air",
         "mission_type": "CAP",
         "altitude_m": 7000,
-        "speed_mps": 250,
-        "loadout": "cap_light",
+        "speed_mps": 220,
+        "loadout": "mig29_cap",
         "default_rtb_base": "Gudauta",
-        "orbit_radius_m": 18520
+        "description": "CAP air start. Aircraft-specific stores; live DCS validation pending."
       },
       "mig29_patrol": {
         "label": "MiG-29S Patrol",
         "aircraft": "MiG_29S",
+        "dcs_type": "MiG-29S",
+        "role": "patrol",
         "start_type": "air",
         "mission_type": "patrol",
+        "altitude_m": 7000,
+        "speed_mps": 220,
+        "loadout": "mig29_patrol",
+        "default_rtb_base": "Gudauta",
+        "description": "Clean aircraft orbiting the staged point."
+      },
+      "flanker_cap": {
+        "label": "Su-27 CAP",
+        "aircraft": "Su_27",
+        "dcs_type": "Su-27",
+        "role": "CAP",
+        "start_type": "air",
+        "mission_type": "CAP",
+        "altitude_m": 7000,
+        "speed_mps": 220,
+        "loadout": "flanker_cap",
+        "default_rtb_base": "Gudauta",
+        "description": "CAP air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "sea_flanker_cap": {
+        "label": "Su-33 CAP",
+        "aircraft": "Su_33",
+        "dcs_type": "Su-33",
+        "role": "CAP",
+        "start_type": "air",
+        "mission_type": "CAP",
+        "altitude_m": 7000,
+        "speed_mps": 220,
+        "loadout": "sea_flanker_cap",
+        "default_rtb_base": "Gudauta",
+        "description": "CAP air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "foxhound_cap": {
+        "label": "MiG-31 CAP",
+        "aircraft": "MiG_31",
+        "dcs_type": "MiG-31",
+        "role": "CAP",
+        "start_type": "air",
+        "mission_type": "CAP",
+        "altitude_m": 7000,
+        "speed_mps": 220,
+        "loadout": "foxhound_cap",
+        "default_rtb_base": "Gudauta",
+        "description": "CAP air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "frogfoot_cas": {
+        "label": "Su-25T CAS",
+        "aircraft": "Su_25T",
+        "dcs_type": "Su-25T",
+        "role": "CAS",
+        "start_type": "air",
+        "mission_type": "CAS",
+        "altitude_m": 5000,
+        "speed_mps": 220,
+        "loadout": "frogfoot_cas",
+        "default_rtb_base": "Gudauta",
+        "description": "CAS air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "fencer_cas": {
+        "label": "Su-24M CAS",
+        "aircraft": "Su_24M",
+        "dcs_type": "Su-24M",
+        "role": "CAS",
+        "start_type": "air",
+        "mission_type": "CAS",
+        "altitude_m": 5000,
+        "speed_mps": 220,
+        "loadout": "fencer_cas",
+        "default_rtb_base": "Gudauta",
+        "description": "CAS air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "candid_transport": {
+        "label": "IL-76MD transport",
+        "aircraft": "IL_76MD",
+        "dcs_type": "IL-76MD",
+        "role": "transport",
+        "start_type": "air",
+        "mission_type": "transport",
         "altitude_m": 5000,
         "speed_mps": 210,
-        "loadout": "patrol_clean",
+        "loadout": "candid_transport",
         "default_rtb_base": "Gudauta",
-        "orbit_radius_m": 18520
+        "description": "Transport air start; native DCS cargo behavior still needs validation."
+      },
+      "curl_transport": {
+        "label": "An-26B transport",
+        "aircraft": "An_26B",
+        "dcs_type": "An-26B",
+        "role": "transport",
+        "start_type": "air",
+        "mission_type": "transport",
+        "altitude_m": 5000,
+        "speed_mps": 110,
+        "loadout": "curl_transport",
+        "default_rtb_base": "Gudauta",
+        "description": "Transport air start; native DCS cargo behavior still needs validation."
+      },
+      "mainstay_awacs": {
+        "label": "A-50 AWACS",
+        "aircraft": "A_50",
+        "dcs_type": "A-50",
+        "role": "AWACS",
+        "start_type": "air",
+        "mission_type": "AWACS",
+        "altitude_m": 7000,
+        "speed_mps": 180,
+        "loadout": "mainstay_awacs",
+        "default_rtb_base": "Gudauta",
+        "description": "AWACS air start. Aircraft-specific stores; live DCS validation pending."
+      },
+      "midas_tanker": {
+        "label": "IL-78M (drogue) tanker",
+        "aircraft": "IL_78M",
+        "dcs_type": "IL-78M",
+        "role": "tanker",
+        "start_type": "air",
+        "mission_type": "tanker",
+        "altitude_m": 7000,
+        "speed_mps": 180,
+        "loadout": "midas_tanker",
+        "default_rtb_base": "Gudauta",
+        "description": "tanker air start. Aircraft-specific stores; live DCS validation pending."
       }
     }
   }

@@ -8,6 +8,7 @@ import json
 import sys
 
 import dcs
+from air_catalog import build_templates
 
 
 def client(group: dcs.unitgroup.FlyingGroup, name: str) -> None:
@@ -165,6 +166,29 @@ def add_initial_flights(mission: dcs.Mission, scenario: dict,
         set_flight_callsign(group, country, configured)
 
 
+def add_alert_flights(mission: dcs.Mission, scenario: dict,
+                      countries: dict, airports: dict) -> None:
+    """Add visible cold aircraft that remain parked until DCS receives Start."""
+    for configured in scenario.get("alert_flights", []):
+        country = countries[configured["side"]]
+        airport = airports[configured["base"]]
+        point1 = offset_point(mission, airport, configured["track_offsets_m"][0])
+        point2 = offset_point(mission, airport, configured["track_offsets_m"][1])
+        group = mission.patrol_flight(
+            country=country, name=configured["name"],
+            patrol_type=aircraft_type(configured["aircraft"]), airport=airport,
+            pos1=point1, pos2=point2, start_type=dcs.mission.StartType.Cold,
+            speed=configured["speed_kph"], altitude=configured["altitude_m"],
+            max_engage_distance=configured["engage_range_m"],
+            group_size=configured.get("group_size", 2),
+        )
+        group.add_trigger_action(dcs.task.StartCommand())
+        group.uncontrolled = True
+        group.set_skill(dcs.unit.Skill.High)
+        group.load_task_default_loadout(dcs.task.CAP)
+        set_flight_callsign(group, country, configured)
+
+
 def lua_literal(value):
     if value is None:
         return "nil"
@@ -210,6 +234,7 @@ def main() -> None:
     add_client_slots(mission, scenario, countries, airports)
     add_initial_groups(mission, scenario, countries, airports, catalog)
     add_initial_flights(mission, scenario, countries, airports)
+    add_alert_flights(mission, scenario, countries, airports)
 
     # Capture airbases for RTB catalog
     airbase_catalog = {"blue": {}, "red": {}}
@@ -228,52 +253,9 @@ def main() -> None:
                 "lon": round(latlng.lng, 6)
             }
 
-    # Capture valid pydcs AI flight data, then remove the template groups. The
-    # mission Lua clones these known-good tables for the manual air-start trial.
-    air_catalog = {"presets": {}, "loadouts": {}}
+    # Aircraft templates belong to the server; also export during a full build.
     air_config = json.loads(Path(__file__).with_name("air_trial.json").read_text())
-    air_catalog["loadouts"] = air_config["loadouts"]
-    
-    for side, country in countries.items():
-        airport = airports[scenario["coalitions"][side]["airbases"][0]]
-        air_catalog["presets"][side] = {}
-        for preset_name, preset_config in air_config["presets"][side].items():
-            aircraft = aircraft_type(preset_config["aircraft"])
-            group = mission.flight_group_inflight(
-                country=country, name=f"FoW {side} {preset_name} template", aircraft_type=aircraft,
-                position=dcs.Point(airport.position.x - 15000, airport.position.y + 5000, mission.terrain),
-                altitude=preset_config["altitude_m"], speed=preset_config["speed_mps"],
-                maintask=dcs.task.Nothing, group_size=1,
-            )
-            group.units[0].skill = dcs.unit.Skill.High
-            
-            # Apply loadout if specified
-            loadout_name = preset_config.get("loadout")
-            if loadout_name and loadout_name in air_config["loadouts"][side]:
-                loadout = air_config["loadouts"][side][loadout_name]
-                for pylon_data in loadout["pylons"].values():
-                    # pydcs load_pylon expects (weapon_clsid, pylon_number)
-                    group.units[0].pylons[pylon_data["num"]] = {"CLSID": pylon_data["CLSID"]}
-            
-            data = group.dict()
-            data.pop("groupId", None)
-            for unit in data["units"].values():
-                unit.pop("unitId", None)
-            for waypoint in data["route"]["points"].values():
-                waypoint["task"] = {"id": "ComboTask", "params": {"tasks": {}}}
-            if not mission.remove_plane_group(group):
-                raise RuntimeError("Could not remove temporary AI flight template")
-            
-            air_catalog["presets"][side][preset_name] = {
-                "label": preset_config["label"],
-                "mission_type": preset_config["mission_type"],
-                "altitude_m": preset_config["altitude_m"],
-                "speed_mps": preset_config["speed_mps"],
-                "loadout": loadout_name,
-                "default_rtb_base": preset_config["default_rtb_base"],
-                "orbit_radius_m": preset_config.get("orbit_radius_m"),
-                "group": data
-            }
+    air_catalog = {"presets": build_templates(air_config), "loadouts": air_config["loadouts"]}
 
     mission.init_script = ("FoWAirCatalog = " + lua_literal(air_catalog) + "\n" +
                            "FoWAirbaseCatalog = " + lua_literal(airbase_catalog) + "\n" +

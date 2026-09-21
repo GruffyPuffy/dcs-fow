@@ -75,6 +75,7 @@ docker exec "$container" /bin/bash -lc \
      /tmp/dcs-fow-pydcs-venv/bin/pip install --disable-pip-version-check pydcs==0.15.0
    fi'
 
+docker cp "$repo_dir/missions/air_catalog.py" "$container:/tmp/air_catalog.py"
 docker cp "$generator" "$container:$container_generator"
 docker cp "$mission_lua" "$container:$container_lua"
 docker cp "$catalog" "$container:$container_catalog"
@@ -105,6 +106,7 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     markers += [slot["name"] for slot in scenario["client_slots"]]
     markers += [group["name"] for group in scenario["initial_groups"]]
     markers += [flight["name"] for flight in scenario.get("initial_flights", [])]
+    markers += [flight["name"] for flight in scenario.get("alert_flights", [])]
     for marker in markers:
         if marker not in mission:
             raise SystemExit(f"Mission validation failed: missing {marker}")

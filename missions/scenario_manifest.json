@@ -16,6 +16,165 @@
         ]
       }
     },
+    "strategic_bases": {
+      "Batumi": {
+        "kind": "home",
+        "side": "blue",
+        "defense_positions": [
+          {
+            "lat": 41.633623,
+            "lon": 41.639426
+          },
+          {
+            "lat": 41.580193,
+            "lon": 41.632246
+          }
+        ]
+      },
+      "Gudauta": {
+        "kind": "home",
+        "side": "red",
+        "defense_positions": [
+          {
+            "lat": 43.138665,
+            "lon": 40.609629
+          },
+          {
+            "lat": 43.085112,
+            "lon": 40.602958
+          }
+        ]
+      },
+      "Kobuleti": {
+        "kind": "objective",
+        "approaches": {
+          "blue": [
+            {
+              "lat": 41.891605,
+              "lon": 41.831648
+            }
+          ],
+          "red": [
+            {
+              "lat": 41.965155,
+              "lon": 41.825715
+            }
+          ]
+        },
+        "defense_positions": [
+          {
+            "lat": 41.910762,
+            "lon": 41.847462
+          },
+          {
+            "lat": 41.947537,
+            "lon": 41.844495
+          }
+        ]
+      },
+      "Senaki-Kolkhi": {
+        "kind": "objective",
+        "approaches": {
+          "blue": [
+            {
+              "lat": 42.201133,
+              "lon": 42.019542
+            }
+          ],
+          "red": [
+            {
+              "lat": 42.269313,
+              "lon": 42.000983
+            }
+          ]
+        },
+        "defense_positions": [
+          {
+            "lat": 42.220991,
+            "lon": 42.033778
+          },
+          {
+            "lat": 42.255081,
+            "lon": 42.024499
+          }
+        ]
+      },
+      "Kutaisi": {
+        "kind": "objective",
+        "approaches": {
+          "blue": [
+            {
+              "lat": 42.148344,
+              "lon": 42.435243
+            }
+          ],
+          "red": [
+            {
+              "lat": 42.202955,
+              "lon": 42.431156
+            }
+          ]
+        },
+        "defense_positions": [
+          {
+            "lat": 42.16298,
+            "lon": 42.45827
+          },
+          {
+            "lat": 42.19028,
+            "lon": 42.45622
+          }
+        ]
+      },
+      "Sukhumi-Babushara": {
+        "kind": "objective",
+        "approaches": {
+          "blue": [
+            {
+              "lat": 42.817837,
+              "lon": 41.141756
+            }
+          ],
+          "red": [
+            {
+              "lat": 42.884996,
+              "lon": 41.07303
+            }
+          ]
+        },
+        "defense_positions": [
+          {
+            "lat": 42.83946,
+            "lon": 41.13338
+          },
+          {
+            "lat": 42.87304,
+            "lon": 41.09901
+          }
+        ]
+      }
+    },
+    "commander_rules": {
+      "assault_packages": [
+        "fighting_force",
+        "mechanized_infantry",
+        "armor_platoon"
+      ],
+      "maximum_active_assaults_per_side": 2,
+      "automatic_defense_packages": [
+        "base_defense_force"
+      ],
+      "defense_packages": [
+        "platoon",
+        "infantry_section",
+        "short_range_ad",
+        "sam"
+      ],
+      "maximum_defense_packages_per_base": 3,
+      "defense_spawn_radius_m": 8000,
+      "maximum_dynamic_ground_units_per_side": 80,
+      "maximum_active_aircraft_per_side": 12
+    },
     "client_slots": [
       {
         "name": "FoW Hornet Air",
@@ -254,6 +413,57 @@
         "group_size": 2,
         "callsign": {
           "number": 301
+        }
+      }
+    ],
+    "alert_flights": [
+      {
+        "name": "FoW Blue Batumi QRA",
+        "display_name": "Batumi ready fighters",
+        "side": "blue",
+        "base": "Batumi",
+        "aircraft": "FA_18C_hornet",
+        "track_offsets_m": [
+          [
+            -15000,
+            30000
+          ],
+          [
+            35000,
+            30000
+          ]
+        ],
+        "altitude_m": 7500,
+        "speed_kph": 850,
+        "engage_range_m": 60000,
+        "group_size": 2,
+        "callsign": {
+          "name": "Springfield",
+          "flight": 2
+        }
+      },
+      {
+        "name": "FoW Red Gudauta QRA",
+        "display_name": "Gudauta ready fighters",
+        "side": "red",
+        "base": "Gudauta",
+        "aircraft": "MiG_29S",
+        "track_offsets_m": [
+          [
+            15000,
+            30000
+          ],
+          [
+            -35000,
+            30000
+          ]
+        ],
+        "altitude_m": 7500,
+        "speed_kph": 850,
+        "engage_range_m": 60000,
+        "group_size": 2,
+        "callsign": {
+          "number": 311
         }
       }
     ],

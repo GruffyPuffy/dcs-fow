@@ -3,6 +3,11 @@
 import math
 
 
+def build_start_command() -> dict:
+    """Return DCS's native command for starting an uncontrolled aircraft group."""
+    return {'id': 'Start', 'params': {}}
+
+
 def air_start_position(lat: float, lon: float, distance_m: float = 25000) -> tuple[float, float]:
     """Return an air-start point west of the selected mission point."""
     earth_radius_m = 6371000
@@ -111,6 +116,7 @@ def build_air_spawn_data(side: str, preset_config: dict, group_template: dict | 
     # Copy template to avoid modifying catalog
     group_data = copy.deepcopy(group_template)
     group_data['name'] = group_name
+    group_data['task'] = {'tanker': 'Refueling', 'transport': 'Transport', 'patrol': 'Nothing'}.get(preset_config['mission_type'], preset_config['mission_type'])
     group_data.pop('groupId', None)
     
     # Handle both list and dict formats for units
@@ -221,7 +227,7 @@ def build_route_update(mission_type: str, current_lat: float, current_lon: float
 
 def build_rtb_task(airbase_name: str, airbase_lat: float, airbase_lon: float,
                    current_lat: float, current_lon: float,
-                   current_altitude_m: float) -> dict:
+                   current_altitude_m: float, speed_mps: float = 180) -> dict:
     """Build a fixed-wing mission route ending at an airbase."""
     return {
         'id': 'Mission',
@@ -232,7 +238,7 @@ def build_rtb_task(airbase_name: str, airbase_lat: float, airbase_lon: float,
                     {
                         'alt': max(1000, current_altitude_m),
                         'alt_type': 'BARO',
-                        'speed': 180,
+                        'speed': speed_mps,
                         'speed_locked': True,
                         'ETA': 0,
                         'ETA_locked': False,
@@ -244,7 +250,7 @@ def build_rtb_task(airbase_name: str, airbase_lat: float, airbase_lon: float,
                     {
                         'alt': 0,
                         'alt_type': 'BARO',
-                        'speed': 150,
+                        'speed': min(150, speed_mps),
                         'speed_locked': True,
                         'ETA': 0,
                         'ETA_locked': False,
@@ -278,7 +284,8 @@ def build_ground_route(current_lat: float, current_lon: float, lat: float, lon: 
 
 
 def build_ground_spawn_data(side: str, template: dict, group_name: str,
-                            lat: float, lon: float) -> dict:
+                            lat: float, lon: float,
+                            destination: tuple[float, float] | None = None) -> dict:
     units = []
     for index, entry in enumerate(template['units'], 1):
         unit_lat, unit_lon = offset_position(lat, lon, entry.get('dx', 0), entry.get('dy', 0))
@@ -287,14 +294,18 @@ def build_ground_spawn_data(side: str, template: dict, group_name: str,
             'heading': 0, 'skill': 'Average', 'playerCanDrive': False,
             '__geo': {'lat': unit_lat, 'lon': unit_lon},
         })
+    group_data = {
+        'name': group_name, 'task': 'Ground Nothing', 'units': units,
+        'visible': True, 'hidden': False, 'start_time': 0,
+        '__geo': {'lat': lat, 'lon': lon},
+    }
+    if destination:
+        group_data['route'] = build_ground_route(
+            lat, lon, destination[0], destination[1])
     return {
         'country_id': 2 if side == 'blue' else 0,
         'category': 2,
-        'group_data': {
-            'name': group_name, 'task': 'Ground Nothing', 'units': units,
-            'visible': True, 'hidden': False, 'start_time': 0,
-            '__geo': {'lat': lat, 'lon': lon},
-        },
+        'group_data': group_data,
     }
 
 
@@ -329,6 +340,15 @@ def _build_mission_task(mission_type: str, altitude_m: int, speed_mps: int) -> d
     Returns:
         DCS task structure
     """
+    if mission_type in ('CAS', 'AWACS', 'tanker'):
+        task = ({'id': 'EngageTargets', 'params': {'targetTypes': ['Ground Units'], 'priority': 0}}
+                if mission_type == 'CAS' else {'id': 'Tanker' if mission_type == 'tanker' else 'AWACS', 'params': {}})
+        task.update(number=1, auto=True, enabled=True)
+        orbit = _build_mission_task('patrol', altitude_m, speed_mps)['params']['tasks'][0]
+        orbit['number'] = 2
+        return {'id': 'ComboTask', 'params': {'tasks': [task, orbit]}}
+    if mission_type == 'transport':
+        return _build_mission_task('patrol', altitude_m, speed_mps)
     if mission_type == 'CAP':
         return {
             'id': 'ComboTask',

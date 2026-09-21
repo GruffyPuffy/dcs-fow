@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
 from pathlib import Path
+import random
 import threading
 import time
 import uuid
@@ -39,11 +40,30 @@ def scenario_aliases() -> dict:
         return {}
     scenario = json.loads(SCENARIO_MANIFEST.read_text()).get("scenario", {})
     configured = scenario.get("client_slots", []) + scenario.get("initial_groups", []) \
-        + scenario.get("initial_flights", [])
+        + scenario.get("initial_flights", []) + scenario.get("alert_flights", [])
     return {
         item["name"]: item["display_name"]
         for item in configured if item.get("display_name")
     }
+
+
+def scenario_rules() -> tuple[dict, dict]:
+    scenario = json.loads(SCENARIO_MANIFEST.read_text()).get("scenario", {})
+    return scenario.get("strategic_bases", {}), scenario.get("commander_rules", {})
+
+
+def scenario_alert_flights() -> list[dict]:
+    scenario = json.loads(SCENARIO_MANIFEST.read_text()).get("scenario", {})
+    return scenario.get("alert_flights", [])
+
+
+def distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    radius = 6371000
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2
+    a += math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    return 2 * radius * math.asin(min(1, math.sqrt(a)))
 
 
 def range_rings(snapshot: dict | None, catalog: dict) -> dict:
@@ -145,6 +165,12 @@ def main() -> None:
             elif path.path == "/api/airbase-catalog":
                 body = AIRBASE_CATALOG.read_bytes()
                 content_type = "application/json; charset=utf-8"
+            elif path.path == "/api/objectives":
+                strategic_bases, commander_rules = scenario_rules()
+                body = json.dumps({"bases": strategic_bases, "rules": commander_rules,
+                                   "alert_flights": scenario_alert_flights()},
+                                  separators=(",", ":")).encode("utf-8")
+                content_type = "application/json; charset=utf-8"
             elif path.path == "/api/status":
                 sides = parse_qs(path.query).get("side", ["blue"])
                 if len(sides) != 1 or sides[0] not in ("blue", "red", "admin"):
@@ -169,7 +195,7 @@ def main() -> None:
             self.wfile.write(body)
 
         def do_POST(self) -> None:
-            if self.path not in ("/api/orders", "/api/move", "/api/spawn", "/api/spawn-air", "/api/alias", "/api/set-mission", "/api/rtb"):
+            if self.path not in ("/api/orders", "/api/move", "/api/spawn", "/api/spawn-air", "/api/alias", "/api/set-mission", "/api/rtb", "/api/attack-base", "/api/defend-base", "/api/scramble"):
                 self.send_error(404)
                 return
             # JSON plus a custom header prevents a cross-site HTML form from
@@ -188,7 +214,33 @@ def main() -> None:
                 side = request.get("side", "blue")
                 if side not in ("blue", "red", "admin"):
                     raise ValueError("Invalid commander side")
-                if self.path == "/api/alias":
+                if self.path == "/api/scramble":
+                    if side == "admin":
+                        raise ValueError("Choose Blue or Red before scrambling aircraft")
+                    name = request.get("group")
+                    configured_alert = next((flight for flight in scenario_alert_flights()
+                                             if flight.get("name") == name and flight.get("side") == side), None)
+                    if configured_alert is None:
+                        raise ValueError("Choose a configured ready flight for this side")
+                    op = "scramble"
+                elif self.path in ("/api/attack-base", "/api/defend-base"):
+                    if side == "admin":
+                        raise ValueError("Choose Blue or Red before deploying a force")
+                    target_base = request.get("base")
+                    strategic_bases, commander_rules = scenario_rules()
+                    target_config = strategic_bases.get(target_base)
+                    if not isinstance(target_base, str) or not target_config:
+                        raise ValueError("Choose a configured strategic base")
+                    if self.path == "/api/attack-base":
+                        if target_config.get("kind") != "objective":
+                            raise ValueError("Home bases are not assault objectives")
+                        op, name = "attack_base", f"Assault on {target_base}"
+                        quick_trial = request.get("quick_trial", False)
+                        if not isinstance(quick_trial, bool):
+                            raise ValueError("Invalid quick-trial option")
+                    else:
+                        op, name = "defend_base", f"Defense of {target_base}"
+                elif self.path == "/api/alias":
                     op, name = "alias", request["group"]
                     alias = request["alias"]
                     if not isinstance(alias, str) or not 1 <= len(alias) <= 80 or \
@@ -225,7 +277,7 @@ def main() -> None:
                     if not isinstance(name, str) or not name or len(name) > 128:
                         raise ValueError("Invalid group")
                     mission_type = request.get("mission_type")
-                    if mission_type not in ("patrol", "CAP"):
+                    if mission_type not in ("patrol", "CAP", "CAS", "AWACS", "tanker"):
                         raise ValueError("Invalid mission type")
                 elif self.path == "/api/rtb":
                     name = request["group"]
@@ -287,10 +339,135 @@ def main() -> None:
             if bridge_error or not snapshot or not received_at or time.time() - received_at > 30:
                 self.json_response(503, {"ok": False, "error": "DCS status is stale"})
                 return
-            if op not in ("spawn", "spawn_air"):
+            if op in ("attack_base", "defend_base"):
+                coalition = {"red": 1, "blue": 2}[side]
+                airbase = next((base for base in snapshot.get("airbases", [])
+                                if base.get("name") == target_base), None)
+                if not airbase:
+                    self.json_response(400, {"ok": False, "error": "Target airbase is absent from DCS status"})
+                    return
+            if op == "scramble":
+                coalition = {"red": 1, "blue": 2}[side]
+                home = next((base for base in snapshot.get("airbases", [])
+                             if base.get("name") == configured_alert["base"]), None)
+                if not home or home.get("coalition") != coalition:
+                    self.json_response(400, {"ok": False,
+                                             "error": "DCS does not show the alert base as owned by this side"})
+                    return
+                if op == "attack_base" and airbase.get("coalition") == coalition:
+                    self.json_response(400, {"ok": False, "error": "That airbase is already owned by this side"})
+                    return
+                if op == "defend_base" and airbase.get("coalition") != coalition:
+                    self.json_response(400, {"ok": False, "error": "DCS does not show that base as owned by this side"})
+                    return
+            if op == "attack_base":
+                approaches = target_config.get("approaches", {}).get(side, [])
+                if not approaches:
+                    self.json_response(400, {"ok": False, "error": "No validated approach for this side"})
+                    return
+                prefix = f"FoW {side.title()} Assault "
+                active_assaults = sum(1 for group in snapshot.get("groups", [])
+                                      if group.get("name", "").startswith(prefix) and group.get("units"))
+                maximum = int(commander_rules.get("maximum_active_assaults_per_side", 2))
+                if active_assaults >= maximum:
+                    self.json_response(400, {"ok": False,
+                                             "error": f"Active assault limit reached ({maximum})"})
+                    return
+                package_ids = commander_rules.get("assault_packages", [])
+                catalog = load_catalog()
+                package_ids = [package for package in package_ids if package in catalog[side]]
+                if not package_ids:
+                    self.json_response(500, {"ok": False, "error": "No assault packages configured"})
+                    return
+                template = random.choice(package_ids)
+                approach = random.choice(approaches)
+                lat, lon = airbase["lat"], airbase["lon"]
+                if quick_trial:
+                    configured_distance = distance_m(
+                        lat, lon, approach["lat"], approach["lon"])
+                    if configured_distance > 2300:
+                        fraction = 2300 / configured_distance
+                        approach = {
+                            "lat": lat + (approach["lat"] - lat) * fraction,
+                            "lon": lon + (approach["lon"] - lon) * fraction,
+                        }
+            elif op == "defend_base":
+                positions = target_config.get("defense_positions", [])
+                if not positions:
+                    self.json_response(400, {"ok": False, "error": "No validated defense position for this base"})
+                    return
+                prefix = f"FoW {side.title()} Defense {target_base} "
+                active_defenses = sum(1 for group in snapshot.get("groups", [])
+                                      if group.get("name", "").startswith(prefix) and group.get("units"))
+                maximum = int(commander_rules.get("maximum_defense_packages_per_base", 3))
+                if active_defenses >= maximum:
+                    self.json_response(400, {"ok": False,
+                                             "error": f"Defense limit reached for {target_base} ({maximum})"})
+                    return
+                package_ids = commander_rules.get(
+                    "automatic_defense_packages", commander_rules.get("defense_packages", []))
+                catalog = load_catalog()
+                package_ids = [package for package in package_ids if package in catalog[side]]
+                if not package_ids:
+                    self.json_response(500, {"ok": False, "error": "No defense packages configured"})
+                    return
+                template = random.choice(package_ids)
+                approach = random.choice(positions)
+                lat, lon = approach["lat"], approach["lon"]
+            elif op == "spawn":
+                strategic_bases, commander_rules = scenario_rules()
+                defense_packages = commander_rules.get("defense_packages", [])
+                if template not in defense_packages:
+                    self.json_response(400, {"ok": False,
+                                             "error": "Commanders may manually place only curated defense packages"})
+                    return
+                coalition = {"red": 1, "blue": 2}[side]
+                radius = int(commander_rules.get("defense_spawn_radius_m", 8000))
+                owned = [base for base in snapshot.get("airbases", [])
+                         if base.get("coalition") == coalition and base.get("name") in strategic_bases]
+                nearby = [(distance_m(lat, lon, base["lat"], base["lon"]), base) for base in owned]
+                nearby = [(distance, base) for distance, base in nearby if distance <= radius]
+                if not nearby:
+                    self.json_response(400, {"ok": False,
+                                             "error": f"Place defenses within {radius // 1000} km of an owned strategic base"})
+                    return
+                defense_base = min(nearby, key=lambda item: item[0])[1]
+                prefix = f"FoW {side.title()} Defense {defense_base['name']} "
+                active_defenses = sum(1 for group in snapshot.get("groups", [])
+                                      if group.get("name", "").startswith(prefix) and group.get("units"))
+                maximum = int(commander_rules.get("maximum_defense_packages_per_base", 3))
+                if active_defenses >= maximum:
+                    self.json_response(400, {"ok": False,
+                                             "error": f"Defense limit reached for {defense_base['name']} ({maximum})"})
+                    return
+            if op in ("spawn", "attack_base", "defend_base"):
+                coalition = {"red": 1, "blue": 2}[side]
+                prefix = f"FoW {side.title()} "
+                active_units = sum(len(group.get("units", [])) for group in snapshot.get("groups", [])
+                                   if group.get("coalition") == coalition and
+                                   group.get("category") == 2 and
+                                   group.get("name", "").startswith(prefix) and
+                                   (" Assault " in group["name"] or " Defense " in group["name"]))
+                requested_units = len(catalog[side][template]["units"])
+                maximum_units = int(commander_rules.get("maximum_dynamic_ground_units_per_side", 80))
+                if active_units + requested_units > maximum_units:
+                    self.json_response(400, {"ok": False,
+                                             "error": f"Dynamic ground unit limit reached ({maximum_units})"})
+                    return
+            elif op == "spawn_air":
+                coalition = {"red": 1, "blue": 2}[side]
+                active_aircraft = sum(len(group.get("units", [])) for group in snapshot.get("groups", [])
+                                      if group.get("coalition") == coalition and
+                                      group.get("category") == 0)
+                maximum_aircraft = int(scenario_rules()[1].get("maximum_active_aircraft_per_side", 12))
+                if active_aircraft >= maximum_aircraft:
+                    self.json_response(400, {"ok": False,
+                                             "error": f"Active aircraft limit reached ({maximum_aircraft})"})
+                    return
+            if op not in ("spawn", "spawn_air", "attack_base", "defend_base"):
                 groups = snapshot.get("groups", [])
                 allowed = {"blue": 2, "red": 1, "admin": None}[side]
-                required_category = 0 if op in ("air_move", "set_mission", "rtb") else 2
+                required_category = 0 if op in ("air_move", "set_mission", "rtb", "scramble") else 2
                 matching_groups = [g for g in groups
                                    if g.get("name") == name
                                    and (op == "alias" or g.get("category") == required_category)
@@ -301,17 +478,70 @@ def main() -> None:
                     self.json_response(400, {"ok": False, "error": "Choose an active group on this side"})
                     return
                 active_group = matching_groups[0]
+                alert_names = {flight.get("name") for flight in scenario_alert_flights()}
+                if name in alert_names:
+                    was_scrambled = any(
+                        order.get("group_name") == name and
+                        order.get("op") == "scramble" and
+                        order.get("state") == "accepted"
+                        for order in store.dashboard()["orders"]
+                    )
+                    if op == "scramble" and was_scrambled:
+                        self.json_response(400, {"ok": False,
+                                                 "error": "That alert flight has already been scrambled"})
+                        return
+                    if op in ("air_move", "set_mission", "rtb") and not was_scrambled:
+                        self.json_response(400, {"ok": False,
+                                                 "error": "Scramble this parked alert flight before assigning another order"})
+                        return
             if op == "alias":
                 store.set_alias(name, alias)
                 self.json_response(200, {"ok": True, "group": name, "alias": alias})
                 return
+            # Validate all catalog-dependent choices before recording or sending an order.
+            try:
+                if op in ("air_move", "set_mission", "rtb"):
+                    lead = active_group["units"][0]
+                    air_config = json.loads(AIR_CATALOG.read_text())
+                    matching = [p for presets in air_config["presets"].values() for p in presets.values()
+                                if p["dcs_type"] == lead["type"]]
+                    speed_mps = matching[0]["speed_mps"] if matching else 210
+                    if op == "set_mission" and mission_type != "patrol" and not any(
+                            p["mission_type"] == mission_type for p in matching):
+                        raise ValueError("Aircraft does not support that mission")
+                    if op == "rtb":
+                        group_side = {1: "red", 2: "blue"}[active_group["coalition"]]
+                        group_coalition = {"red": 1, "blue": 2}[group_side]
+                        airbase = next((base for base in snapshot.get("airbases", [])
+                                        if base.get("name") == rtb_base and
+                                        base.get("coalition") == group_coalition), None)
+                        if airbase is None:
+                            raise ValueError("Choose a friendly recovery base")
+                elif op == "spawn_air":
+                    group_template = json.loads(AIR_TEMPLATES.read_text()).get(side, {}).get(template, {}).get("group")
+                    if group_template is None:
+                        raise ValueError("Aircraft template missing; run scripts/build-air-catalog.sh")
+            except (ValueError, KeyError) as error:
+                self.json_response(400, {"ok": False, "error": str(error)})
+                return
             order_id = uuid.uuid4().hex
             store.create_order(order_id, op, name, lat, lon, altitude_m, mission_type_val, loadout_val, rtb_base_val)
             try:
-                if op == "spawn_air":
+                if op in ("attack_base", "defend_base"):
+                    template_config = catalog[side][template]
+                    role = "Assault" if op == "attack_base" else "Defense"
+                    actual_name = f"FoW {side.title()} {role} {target_base} {order_id[:3]}"
+                    spawn_data = dcs_structures.build_ground_spawn_data(
+                        side, template_config, actual_name,
+                        approach["lat"], approach["lon"],
+                        (airbase["lat"], airbase["lon"]) if op == "attack_base" else None)
+                    result = exchange(args.bridge_host, args.bridge_port, "spawn_group",
+                                      request_id=order_id, **spawn_data)
+                    if result.get("ok"):
+                        store.rename_order_group(order_id, actual_name)
+                elif op == "spawn_air":
                     air_catalog_data = json.loads(AIR_CATALOG.read_text())
                     preset_config = air_catalog_data["presets"][side][template]
-                    group_template = json.loads(AIR_TEMPLATES.read_text())[side][template]["group"]
                     actual_name = custom_name if custom_name else f"FoW {side.title()} {preset_config['label']} {order_id[:3]}"
                     spawn_lat, spawn_lon = dcs_structures.air_start_position(lat, lon)
 
@@ -331,36 +561,41 @@ def main() -> None:
                         store.rename_order_group(order_id, actual_name)
                 elif op == "spawn":
                     template_config = catalog[side][template]
-                    actual_name = custom_name if custom_name else f"FoW {side.title()} {template_config['label']} {order_id[:3]}"
+                    actual_name = f"FoW {side.title()} Defense {defense_base['name']} {order_id[:3]}"
                     spawn_data = dcs_structures.build_ground_spawn_data(
                         side, template_config, actual_name, lat, lon)
                     result = exchange(args.bridge_host, args.bridge_port, "spawn_group",
                                       request_id=order_id, **spawn_data)
                     if result.get("ok"):
                         store.rename_order_group(order_id, actual_name)
+                        if custom_name:
+                            store.set_alias(actual_name, custom_name)
                 else:
                     lead = active_group["units"][0]
-                    if op == "move":
+                    if op == "scramble":
+                        result = exchange(args.bridge_host, args.bridge_port, "set_command",
+                                          request_id=order_id, group_name=name,
+                                          command_data=dcs_structures.build_start_command())
+                    elif op == "move":
                         route_data = dcs_structures.build_ground_route(
                             lead["lat"], lead["lon"], lat, lon)
                         result = exchange(args.bridge_host, args.bridge_port, "set_route",
                                           request_id=order_id, group_name=name,
                                           route_data=route_data)
                     elif op in ("air_move", "set_mission"):
-                        selected_mission = mission_type if op == "set_mission" else "patrol"
-                        speed_mps = 250 if selected_mission == "CAP" else 210
+                        selected_mission = mission_type if op == "set_mission" else "transit"
                         route = dcs_structures.build_route_update(
                             selected_mission, lead["lat"], lead["lon"], lat, lon,
                             altitude_m, speed_mps)
                         result = exchange(args.bridge_host, args.bridge_port, "set_route",
                                           request_id=order_id, group_name=name, **route)
                     elif op == "rtb":
-                        airbase = json.loads(AIRBASE_CATALOG.read_text())[side][rtb_base]
                         result = exchange(args.bridge_host, args.bridge_port, "set_task",
                                           request_id=order_id, group_name=name,
                                           task_data=dcs_structures.build_rtb_task(
                                               rtb_base, airbase["lat"], airbase["lon"],
-                                              lead["lat"], lead["lon"], lead["y"]))
+                                              lead["lat"], lead["lon"], lead["y"],
+                                              min(180, speed_mps)))
                     elif op == "hold":
                         result = exchange(args.bridge_host, args.bridge_port, "set_task",
                                           request_id=order_id, group_name=name,
@@ -369,12 +604,12 @@ def main() -> None:
                         option = dcs_structures.build_roe_option(mode)
                         result = exchange(args.bridge_host, args.bridge_port, "set_option",
                                           request_id=order_id, group_name=name, **option)
-            except (OSError, RuntimeError, ValueError) as error:
+            except (OSError, RuntimeError, ValueError, KeyError) as error:
                 store.finish_order(order_id, "unknown", str(error))
                 self.json_response(502, {"ok": False, "error": str(error), "order_id": order_id, "state": "unknown"})
                 return
             order_state = "accepted" if result.get("ok") else "rejected"
-            if op == "spawn" and result.get("ok") and result.get("result", "").startswith("SPAWN_ACCEPTED:"):
+            if op in ("spawn", "attack_base", "defend_base") and result.get("ok") and result.get("result", "").startswith("SPAWN_ACCEPTED:"):
                 group_name = result["result"].split(":", 1)[1].split(";", 1)[0]
                 store.rename_order_group(order_id, group_name)
                 if result["result"].endswith(";ROE=OPEN_FIRE"):

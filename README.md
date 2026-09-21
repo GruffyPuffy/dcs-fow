@@ -10,9 +10,11 @@ DCS Fog of War is a prototype for running a persistent Caucasus scenario with ex
 - The live bridge reports groups, positions, speed, altitude, fuel, and callsigns.
 - The local commander viewer shows coalition-filtered state, observed tracks, orders, aliases, and reference weapon ranges.
 - Manual commanders can move or hold ground forces, set ROE, spawn ground or air units, redirect aircraft, assign Patrol/CAP missions, and order aircraft to return to base.
+- Expanded curated ground forces and 21 aircraft types are available in the spawn menu.
+- DCS-owned airbases appear on the map; commanders can launch bounded assaults against four neutral objectives or deploy limited defenses at bases DCS says they own.
 - SQLite retains observations and orders for the current mission run.
 
-Sensor-derived enemy contacts, authenticated commander roles, campaign persistence, logistics simulation, and automatic fuel/recovery decisions are not implemented yet.
+Sensor-derived enemy contacts, authenticated commander roles, campaign persistence, DCS warehouse/cargo observation, automatic fuel/recovery decisions, and automatic air support for base assaults are not implemented yet.
 
 ## Run
 
@@ -36,4 +38,6 @@ Open `http://127.0.0.1:8765/`.
 
 The manual commander is the test harness for a later LLM-based command layer. The plan is to give separate Red and Blue commanders only their side-filtered intelligence and a bounded catalog of structured orders. Deterministic Python code will continue to validate decisions and own all DCS task construction; the LLMs will choose operational intent, not generate Lua or directly control the simulator.
 
-See the [plan](docs/PLAN.md), [server setup](deploy/dcs/README.md), [bridge guide](docs/BRIDGE.md), [viewer guide](docs/VIEWER.md), [command design](docs/MANUAL_COMMANDER.md), and [ADRs](docs/adr/README.md).
+See the [commander note](docs/COMMANDER_NOTE.md), [plan](docs/PLAN.md), [server setup](deploy/dcs/README.md), [bridge guide](docs/BRIDGE.md), [viewer guide](docs/VIEWER.md), [command design](docs/MANUAL_COMMANDER.md), and [ADRs](docs/adr/README.md).
+
+See [curated forces and logistics](docs/LOGISTICS.md) for the new spawn catalog and the intended DCS-owned logistics direction.

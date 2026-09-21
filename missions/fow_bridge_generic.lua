@@ -27,7 +27,7 @@ end
 local sides = { coalition.side.NEUTRAL, coalition.side.RED, coalition.side.BLUE }
 
 function FoWBridge.status(id)
-    local groups, statics = {}, {}
+    local groups, statics, airbases = {}, {}, {}
     for _, side in ipairs(sides) do
         for _, group in pairs(coalition.getGroups(side) or {}) do
             if group and group:isExist() then
@@ -79,10 +79,23 @@ function FoWBridge.status(id)
             end
         end
     end
+    for _, airbase in pairs(world.getAirbases() or {}) do
+        if airbase and airbase:isExist() then
+            local point = airbase:getPoint()
+            local lat, lon = coord.LOtoLL(point)
+            airbases[#airbases + 1] = '{"id":' .. airbase:getID()
+                .. ',"name":' .. quoted(airbase:getName())
+                .. ',"coalition":' .. airbase:getCoalition()
+                .. ',"category":' .. airbase:getCategory()
+                .. ',"lat":' .. geo_number(lat)
+                .. ',"lon":' .. geo_number(lon) .. '}'
+        end
+    end
     return '{"v":1,"id":' .. quoted(id) .. ',"ok":true,"mission_id":'
         .. quoted(FoWBridge.mission_id) .. ',"time":' .. number(timer.getTime())
         .. ',"groups":[' .. table.concat(groups, ',') .. ']'
-        .. ',"statics":[' .. table.concat(statics, ',') .. ']}'
+        .. ',"statics":[' .. table.concat(statics, ',') .. ']'
+        .. ',"airbases":[' .. table.concat(airbases, ',') .. ']}'
 end
 
 local function resolve(value, depth)
@@ -160,6 +173,25 @@ function FoWBridge.setTask(id, group_name, task_data)
     return reply(id, ok, ok and 'TASK_ACCEPTED' or 'TASK_FAILED')
 end
 
+function FoWBridge.setCommand(id, group_name, command_data)
+    local group = Group.getByName(group_name)
+    if not group or not group:isExist() then
+        return reply(id, false, 'GROUP_MISSING')
+    end
+
+    local units = group:getUnits() or {}
+    for _, unit in pairs(units) do
+        if unit:getPlayerName() then
+            return reply(id, false, 'PLAYER_CONTROLLED')
+        end
+    end
+
+    local prepared, resolved = pcall(resolve, command_data, 0)
+    if not prepared then return reply(id, false, tostring(resolved)) end
+    local ok = pcall(function() group:getController():setCommand(resolved) end)
+    return reply(id, ok, ok and 'COMMAND_ACCEPTED' or 'COMMAND_FAILED')
+end
+
 function FoWBridge.setOption(id, group_name, option_id, value)
     local group = Group.getByName(group_name)
     if not group or not group:isExist() then
@@ -190,6 +222,8 @@ function FoWBridge.handle(request)
         return FoWBridge.setRoute(id, request.group_name, request.route_data)
     elseif op == 'set_task' then
         return FoWBridge.setTask(id, request.group_name, request.task_data)
+    elseif op == 'set_command' then
+        return FoWBridge.setCommand(id, request.group_name, request.command_data)
     elseif op == 'set_option' then
         return FoWBridge.setOption(id, request.group_name, request.option_id, request.value)
     else

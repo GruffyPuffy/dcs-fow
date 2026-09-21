@@ -1,12 +1,808 @@
 {
   "blue": {
-    "vehicle": {"label": "Single truck", "units": [{"type": "M 818", "dx": 0, "dy": 0}]},
-    "platoon": {"label": "Mechanized group", "units": [{"type": "M-1 Abrams", "dx": 0, "dy": 0}, {"type": "M-1 Abrams", "dx": 35, "dy": 0}, {"type": "M-1 Abrams", "dx": 0, "dy": 35}, {"type": "M-1 Abrams", "dx": 35, "dy": 35}]},
-    "sam": {"label": "Hawk SAM site", "range_m": 45000, "units": [{"type": "Hawk sr", "dx": 0, "dy": 0}, {"type": "Hawk tr", "dx": 60, "dy": 0}, {"type": "Hawk pcp", "dx": 0, "dy": 60}, {"type": "Hawk ln", "dx": 60, "dy": 60}]}
+    "vehicle": {
+      "label": "Single truck",
+      "units": [
+        {
+          "type": "M 818",
+          "dx": 0,
+          "dy": 0
+        }
+      ],
+      "role": "logistics",
+      "description": "One DCS supply truck; native logistics effect still needs validation."
+    },
+    "platoon": {
+      "label": "Tank platoon",
+      "units": [
+        {
+          "type": "M-1 Abrams",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "M-1 Abrams",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "M-1 Abrams",
+          "dx": 0,
+          "dy": 35
+        },
+        {
+          "type": "M-1 Abrams",
+          "dx": 35,
+          "dy": 35
+        }
+      ]
+    },
+    "sam": {
+      "label": "Hawk SAM site",
+      "range_m": 45000,
+      "units": [
+        {
+          "type": "Hawk sr",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "Hawk tr",
+          "dx": 60,
+          "dy": 0
+        },
+        {
+          "type": "Hawk pcp",
+          "dx": 0,
+          "dy": 60
+        },
+        {
+          "type": "Hawk ln",
+          "dx": 60,
+          "dy": 60
+        }
+      ]
+    },
+    "fighting_force": {
+      "label": "Combined arms fighting force",
+      "role": "combat",
+      "description": "Two tanks, three IFVs, two supply trucks, short-range air defense and six dismounted infantry. Infantry move on foot; they are not embarked.",
+      "units": [
+        {
+          "type": "M-1 Abrams",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "M-1 Abrams",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "M-2 Bradley",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "M-2 Bradley",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "M-2 Bradley",
+          "dx": 0,
+          "dy": 40
+        },
+        {
+          "type": "M 818",
+          "dx": 35,
+          "dy": 40
+        },
+        {
+          "type": "M 818",
+          "dx": 70,
+          "dy": 40
+        },
+        {
+          "type": "M1097 Avenger",
+          "dx": 105,
+          "dy": 40
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 0,
+          "dy": 80
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 35,
+          "dy": 80
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 70,
+          "dy": 80
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 105,
+          "dy": 80
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 0,
+          "dy": 120
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 35,
+          "dy": 120
+        }
+      ]
+    },
+    "mechanized_infantry": {
+      "label": "Mechanized infantry with support",
+      "role": "combat",
+      "description": "Three IFVs, one supply truck and eight dismounted infantry.",
+      "units": [
+        {
+          "type": "M-2 Bradley",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "M-2 Bradley",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "M-2 Bradley",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "M 818",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 0,
+          "dy": 40
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 35,
+          "dy": 40
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 70,
+          "dy": 40
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 105,
+          "dy": 40
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 0,
+          "dy": 80
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 35,
+          "dy": 80
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 70,
+          "dy": 80
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 105,
+          "dy": 80
+        }
+      ]
+    },
+    "armor_platoon": {
+      "label": "Tank platoon with supply truck",
+      "role": "combat",
+      "description": "Four tanks with one supply truck.",
+      "units": [
+        {
+          "type": "M-1 Abrams",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "M-1 Abrams",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "M-1 Abrams",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "M-1 Abrams",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "M 818",
+          "dx": 0,
+          "dy": 40
+        }
+      ]
+    },
+    "infantry_section": {
+      "label": "Infantry section",
+      "role": "infantry",
+      "description": "Eight dismounted infantry; suitable for local defense.",
+      "units": [
+        {
+          "type": "Soldier M4",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 0,
+          "dy": 40
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 35,
+          "dy": 40
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 70,
+          "dy": 40
+        },
+        {
+          "type": "Soldier M4",
+          "dx": 105,
+          "dy": 40
+        }
+      ]
+    },
+    "supply_convoy": {
+      "label": "Escorted supply convoy",
+      "role": "logistics",
+      "description": "Four supply trucks, one fuel truck and one armored escort.",
+      "units": [
+        {
+          "type": "M-2 Bradley",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "M 818",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "M 818",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "M 818",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "M 818",
+          "dx": 0,
+          "dy": 40
+        },
+        {
+          "type": "M978 HEMTT Tanker",
+          "dx": 35,
+          "dy": 40
+        }
+      ]
+    },
+    "fuel_convoy": {
+      "label": "Escorted fuel convoy",
+      "role": "logistics",
+      "description": "Three fuel trucks, one supply truck and one armored escort.",
+      "units": [
+        {
+          "type": "M-2 Bradley",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "M978 HEMTT Tanker",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "M978 HEMTT Tanker",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "M978 HEMTT Tanker",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "M 818",
+          "dx": 0,
+          "dy": 40
+        }
+      ]
+    },
+    "base_defense_force": {
+      "label": "Combined base defense force",
+      "role": "base_defense",
+      "description": "Armor, mechanized infantry, dismounted infantry, short-range air defense and a complete Hawk SAM site.",
+      "units": [
+        {"type": "M-1 Abrams", "dx": 0, "dy": 0},
+        {"type": "M-1 Abrams", "dx": 50, "dy": 0},
+        {"type": "M-2 Bradley", "dx": 0, "dy": 60},
+        {"type": "M-2 Bradley", "dx": 50, "dy": 60},
+        {"type": "Soldier M4", "dx": 0, "dy": 120},
+        {"type": "Soldier M4", "dx": 25, "dy": 120},
+        {"type": "Soldier M4", "dx": 50, "dy": 120},
+        {"type": "Soldier M4", "dx": 75, "dy": 120},
+        {"type": "Soldier M4", "dx": 100, "dy": 120},
+        {"type": "Soldier M4", "dx": 125, "dy": 120},
+        {"type": "M1097 Avenger", "dx": 0, "dy": 200},
+        {"type": "M1097 Avenger", "dx": 100, "dy": 200},
+        {"type": "Hawk sr", "dx": 250, "dy": 0},
+        {"type": "Hawk tr", "dx": 250, "dy": 100},
+        {"type": "Hawk pcp", "dx": 350, "dy": 0},
+        {"type": "Hawk ln", "dx": 350, "dy": 100}
+      ],
+      "range_m": 45000
+    },
+    "short_range_ad": {
+      "label": "Mobile short-range air defense",
+      "role": "air_defense",
+      "description": "Two mobile air-defense vehicles and one supply truck.",
+      "units": [
+        {
+          "type": "M1097 Avenger",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "M1097 Avenger",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "M 818",
+          "dx": 70,
+          "dy": 0
+        }
+      ]
+    }
   },
   "red": {
-    "vehicle": {"label": "Single truck", "units": [{"type": "Ural-375", "dx": 0, "dy": 0}]},
-    "platoon": {"label": "Mechanized group", "units": [{"type": "BMP-2", "dx": 0, "dy": 0}, {"type": "BMP-2", "dx": 35, "dy": 0}, {"type": "BMP-2", "dx": 0, "dy": 35}, {"type": "BMP-2", "dx": 35, "dy": 35}]},
-    "sam": {"label": "Buk SAM site", "range_m": 35000, "units": [{"type": "SA-11 Buk SR 9S18M1", "dx": 0, "dy": 0}, {"type": "SA-11 Buk CC 9S470M1", "dx": 60, "dy": 0}, {"type": "SA-11 Buk LN 9A310M1", "dx": 0, "dy": 60}, {"type": "SA-11 Buk LN 9A310M1", "dx": 60, "dy": 60}]}
+    "vehicle": {
+      "label": "Single truck",
+      "units": [
+        {
+          "type": "Ural-375",
+          "dx": 0,
+          "dy": 0
+        }
+      ],
+      "role": "logistics",
+      "description": "One DCS supply truck; native logistics effect still needs validation."
+    },
+    "platoon": {
+      "label": "BMP-2 platoon",
+      "units": [
+        {
+          "type": "BMP-2",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "BMP-2",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "BMP-2",
+          "dx": 0,
+          "dy": 35
+        },
+        {
+          "type": "BMP-2",
+          "dx": 35,
+          "dy": 35
+        }
+      ]
+    },
+    "sam": {
+      "label": "Buk SAM site",
+      "range_m": 35000,
+      "units": [
+        {
+          "type": "SA-11 Buk SR 9S18M1",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "SA-11 Buk CC 9S470M1",
+          "dx": 60,
+          "dy": 0
+        },
+        {
+          "type": "SA-11 Buk LN 9A310M1",
+          "dx": 0,
+          "dy": 60
+        },
+        {
+          "type": "SA-11 Buk LN 9A310M1",
+          "dx": 60,
+          "dy": 60
+        }
+      ]
+    },
+    "fighting_force": {
+      "label": "Combined arms fighting force",
+      "role": "combat",
+      "description": "Two tanks, three IFVs, two supply trucks, short-range air defense and six dismounted infantry. Infantry move on foot; they are not embarked.",
+      "units": [
+        {
+          "type": "T-72B",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "T-72B",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "BMP-2",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "BMP-2",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "BMP-2",
+          "dx": 0,
+          "dy": 40
+        },
+        {
+          "type": "Ural-375",
+          "dx": 35,
+          "dy": 40
+        },
+        {
+          "type": "Ural-375",
+          "dx": 70,
+          "dy": 40
+        },
+        {
+          "type": "Strela-10M3",
+          "dx": 105,
+          "dy": 40
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 0,
+          "dy": 80
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 35,
+          "dy": 80
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 70,
+          "dy": 80
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 105,
+          "dy": 80
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 0,
+          "dy": 120
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 35,
+          "dy": 120
+        }
+      ]
+    },
+    "mechanized_infantry": {
+      "label": "Mechanized infantry with support",
+      "role": "combat",
+      "description": "Three IFVs, one supply truck and eight dismounted infantry.",
+      "units": [
+        {
+          "type": "BMP-2",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "BMP-2",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "BMP-2",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "Ural-375",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 0,
+          "dy": 40
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 35,
+          "dy": 40
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 70,
+          "dy": 40
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 105,
+          "dy": 40
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 0,
+          "dy": 80
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 35,
+          "dy": 80
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 70,
+          "dy": 80
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 105,
+          "dy": 80
+        }
+      ]
+    },
+    "armor_platoon": {
+      "label": "Tank platoon with supply truck",
+      "role": "combat",
+      "description": "Four tanks with one supply truck.",
+      "units": [
+        {
+          "type": "T-72B",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "T-72B",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "T-72B",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "T-72B",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "Ural-375",
+          "dx": 0,
+          "dy": 40
+        }
+      ]
+    },
+    "infantry_section": {
+      "label": "Infantry section",
+      "role": "infantry",
+      "description": "Eight dismounted infantry; suitable for local defense.",
+      "units": [
+        {
+          "type": "Infantry AK",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 0,
+          "dy": 40
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 35,
+          "dy": 40
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 70,
+          "dy": 40
+        },
+        {
+          "type": "Infantry AK",
+          "dx": 105,
+          "dy": 40
+        }
+      ]
+    },
+    "supply_convoy": {
+      "label": "Escorted supply convoy",
+      "role": "logistics",
+      "description": "Four supply trucks, one fuel truck and one armored escort.",
+      "units": [
+        {
+          "type": "BMP-2",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "Ural-375",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "Ural-375",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "Ural-375",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "Ural-375",
+          "dx": 0,
+          "dy": 40
+        },
+        {
+          "type": "ATZ-10",
+          "dx": 35,
+          "dy": 40
+        }
+      ]
+    },
+    "fuel_convoy": {
+      "label": "Escorted fuel convoy",
+      "role": "logistics",
+      "description": "Three fuel trucks, one supply truck and one armored escort.",
+      "units": [
+        {
+          "type": "BMP-2",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "ATZ-10",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "ATZ-10",
+          "dx": 70,
+          "dy": 0
+        },
+        {
+          "type": "ATZ-10",
+          "dx": 105,
+          "dy": 0
+        },
+        {
+          "type": "Ural-375",
+          "dx": 0,
+          "dy": 40
+        }
+      ]
+    },
+    "base_defense_force": {
+      "label": "Combined base defense force",
+      "role": "base_defense",
+      "description": "Armor, mechanized infantry, dismounted infantry, short-range air defense and a complete Buk SAM site.",
+      "units": [
+        {"type": "T-72B", "dx": 0, "dy": 0},
+        {"type": "T-72B", "dx": 50, "dy": 0},
+        {"type": "BMP-2", "dx": 0, "dy": 60},
+        {"type": "BMP-2", "dx": 50, "dy": 60},
+        {"type": "Infantry AK", "dx": 0, "dy": 120},
+        {"type": "Infantry AK", "dx": 25, "dy": 120},
+        {"type": "Infantry AK", "dx": 50, "dy": 120},
+        {"type": "Infantry AK", "dx": 75, "dy": 120},
+        {"type": "Infantry AK", "dx": 100, "dy": 120},
+        {"type": "Infantry AK", "dx": 125, "dy": 120},
+        {"type": "Strela-10M3", "dx": 0, "dy": 200},
+        {"type": "Strela-10M3", "dx": 100, "dy": 200},
+        {"type": "SA-11 Buk SR 9S18M1", "dx": 250, "dy": 0},
+        {"type": "SA-11 Buk CC 9S470M1", "dx": 250, "dy": 100},
+        {"type": "SA-11 Buk LN 9A310M1", "dx": 350, "dy": 0},
+        {"type": "SA-11 Buk LN 9A310M1", "dx": 350, "dy": 100}
+      ],
+      "range_m": 35000
+    },
+    "short_range_ad": {
+      "label": "Mobile short-range air defense",
+      "role": "air_defense",
+      "description": "Two mobile air-defense vehicles and one supply truck.",
+      "units": [
+        {
+          "type": "Strela-10M3",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "type": "Strela-10M3",
+          "dx": 35,
+          "dy": 0
+        },
+        {
+          "type": "Ural-375",
+          "dx": 70,
+          "dy": 0
+        }
+      ]
+    }
   }
 }

@@ -81,8 +81,21 @@
           <button id="send-order" class="action-button" type="button" disabled>Send order to DCS</button>
         </section>
         <section id="spawn-view" hidden>
-          <label for="spawn-kind">Spawn type</label><select id="spawn-kind"><option value="ground">Ground group or vehicle</option><option value="air">AI aircraft</option></select>
-          <div class="field" id="spawn-search-field"><label for="spawn-search">Find type</label><input id="spawn-search" type="search" placeholder="Search installed ground units"></div>
+          <h2>Strategic assault</h2>
+          <label for="attack-base">Target airbase</label><select id="attack-base"></select>
+          <div id="attack-note" class="subtle">Spawns a bounded ground package about 10–15 minutes from a configured neutral or enemy objective.</div>
+          <label><input id="quick-assault" type="checkbox"> Quick trial: spawn about 2.3 km from the base</label>
+          <button id="send-attack" class="action-button" type="button">Attack base</button>
+          <label for="defend-base">Owned airbase</label><select id="defend-base"></select>
+          <div class="subtle">Adds one randomized defensive package at an approved position. Maximum three active packages per base.</div>
+          <button id="send-defense" class="action-button" type="button">Defend base</button>
+          <h2>Ready aircraft</h2>
+          <label for="alert-flight">Cold alert flight</label><select id="alert-flight"></select>
+          <div class="subtle">Starts the parked flight. Its CAP route and combat behavior are handled by DCS.</div>
+          <button id="send-scramble" class="action-button" type="button">Scramble CAP</button>
+          <h2>Additional deployment</h2>
+          <label for="spawn-kind">Spawn type</label><select id="spawn-kind"><option value="ground">Base defense package</option><option value="air">AI aircraft</option></select>
+          <div class="field" id="spawn-search-field"><label for="spawn-search">Find type</label><input id="spawn-search" type="search" placeholder="Search groups, aircraft or roles"></div>
           <label for="spawn-choice">Unit or group</label><select id="spawn-choice"></select>
           <div id="spawn-note" class="subtle"></div>
           <label for="spawn-name">New group name</label><input id="spawn-name" maxlength="60" placeholder="Leave blank for a descriptive default">
@@ -129,6 +142,13 @@
       const spawnSearch = document.getElementById('spawn-search');
       const spawnName = document.getElementById('spawn-name');
       const spawnButton = document.getElementById('send-spawn');
+      const attackBase = document.getElementById('attack-base');
+      const attackButton = document.getElementById('send-attack');
+      const quickAssault = document.getElementById('quick-assault');
+      const defendBase = document.getElementById('defend-base');
+      const defendButton = document.getElementById('send-defense');
+      const alertFlight = document.getElementById('alert-flight');
+      const scrambleButton = document.getElementById('send-scramble');
       const airAltitude = document.getElementById('air-altitude');
       const rtbBase = document.getElementById('rtb-base');
       const feedback = document.getElementById('order-feedback');
@@ -145,7 +165,7 @@
       const leadUnit = group => (group?.units || []).reduce((lead, unit) => !lead || unit.id < lead.id ? unit : lead, null);
       const metresToFeet = metres => metres * 3.28084;
       const metresPerSecondToKnots = speed => speed * 1.94384;
-      let catalog = {}, airCatalog = {};
+      let catalog = {}, airCatalog = {}, objectiveCatalog = {bases:{},rules:{},alert_flights:[]};
       function setMode(mode) {
         if (panelMode !== mode) targetPoint = null;
         panelMode = mode;
@@ -163,50 +183,63 @@
         const previous = spawnSelect.value;
         spawnSelect.replaceChildren();
         const isAir = spawnKind.value === 'air';
-        document.getElementById('spawn-search-field').hidden = isAir;
+        document.getElementById('spawn-search-field').hidden = false;
         document.getElementById('spawn-note').textContent = isAir
-          ? 'Unarmed air start near Batumi or Gudauta at the preset altitude; staged point is the first waypoint.'
-          : 'Ground spawns need a friendly unit within 50 km. Single SAM components may need a full site.';
+          ? 'Air start 25 km west of the staged mission point. Transport flights hold there until ordered to a base.'
+          : 'Place one curated defense package within 8 km of a DCS-owned strategic base. Each base may have three active packages.';
         if (isAir) {
           const presets = airCatalog?.presets?.[sideSelect.value] || {};
-          for (const [id, entry] of Object.entries(presets)) {
-            const option = document.createElement('option');
-            option.value = id; option.textContent = entry.label;
-            spawnSelect.append(option);
+          const query = spawnSearch.value.trim().toLowerCase();
+          for (const role of ['CAP','CAS','patrol','transport','AWACS','tanker']) {
+            const section = document.createElement('optgroup'); section.label = role;
+            for (const [id, entry] of Object.entries(presets)) {
+              if (entry.role !== role || !`${entry.label} ${entry.description || ''}`.toLowerCase().includes(query)) continue;
+              const option = new Option(entry.label, id); section.append(option);
+            }
+            if (section.children.length) spawnSelect.append(section);
           }
         } else {
           const query = spawnSearch.value.trim().toLowerCase();
-          for (const [kind, heading] of [['template','Curated groups'],['unit','Installed single units']]) {
+          const allowed = new Set(objectiveCatalog.rules?.defense_packages || []);
+          for (const [kind, heading] of [['template','Defense packages']]) {
             const section = document.createElement('optgroup');
             section.label = heading;
             for (const [id, entry] of Object.entries(catalog[sideSelect.value] || {})) {
-              if ((entry.kind || 'template') !== kind || !entry.label.toLowerCase().includes(query)) continue;
+              if (!allowed.has(id) || (entry.kind || 'template') !== kind || !`${entry.label} ${entry.role || ''} ${entry.description || ''}`.toLowerCase().includes(query)) continue;
               const option = document.createElement('option');
-              option.value = id; option.textContent = entry.label;
+              option.value = id; option.textContent = `${entry.label}${kind === 'template' ? ` (${entry.units.length} units)` : ''}`;
               section.append(option);
             }
             if (section.children.length) spawnSelect.append(section);
           }
         }
         if (previous && Array.from(spawnSelect.options).some(option => option.value === previous)) spawnSelect.value = previous;
+        updateSpawnNote();
         updateDraft();
       }
       function updateRtbOptions() {
         const previous = rtbBase.value;
-        const bases = new Set(Object.values(airCatalog?.presets?.[sideSelect.value] || {})
-          .map(preset => preset.default_rtb_base).filter(Boolean));
-        rtbBase.replaceChildren(...Array.from(bases, name => new Option(name, name)));
-        if (bases.has(previous)) rtbBase.value = previous;
+        const coalition = sideSelect.value === 'blue' ? 2 : sideSelect.value === 'red' ? 1 : null;
+        const bases = (latestSnapshot?.airbases || []).filter(base => base.coalition === coalition).map(base => base.name).sort();
+        rtbBase.replaceChildren(...bases.map(name => new Option(name, name)));
+        if (bases.includes(previous)) rtbBase.value = previous;
       }
       fetch('/api/catalog').then(r => r.json()).then(value => { catalog = value; updateSpawnOptions(); });
       fetch('/api/air-catalog').then(r => r.json()).then(value => { airCatalog = value; updateSpawnOptions(); updateRtbOptions(); });
+      fetch('/api/objectives').then(r => r.json()).then(value => { objectiveCatalog = value; updateAttackOptions(); updateSpawnOptions(); });
+      function updateSpawnNote() {
+        const entry = spawnKind.value === 'air' ? airCatalog?.presets?.[sideSelect.value]?.[spawnSelect.value] : catalog[sideSelect.value]?.[spawnSelect.value];
+        document.getElementById('spawn-note').textContent = (entry?.description || '') + (entry?.units ? ' Composition: ' + Object.entries(entry.units.reduce((counts,u) => { counts[u.type] = (counts[u.type] || 0) + 1; return counts; }, {})).map(([type,count]) => `${count} × ${type}`).join(', ') : ' Air start 25 km west of the staged point.');
+      }
+      spawnSelect.addEventListener('change', updateSpawnNote);
       spawnSearch.addEventListener('input', updateSpawnOptions);
       spawnKind.addEventListener('change', updateSpawnOptions);
       ordersTab.addEventListener('click', () => setMode('orders'));
       spawnTab.addEventListener('click', () => setMode('spawn'));
       groupsTab.addEventListener('click', () => setMode('groups'));
-      sideSelect.addEventListener('change', () => { firstFit = true; selectedGroup = null; selectedUnit = null; targetPoint = null; updateSpawnOptions(); updateRtbOptions(); refresh(); });
+      sideSelect.addEventListener('change', () => { firstFit = true; selectedGroup = null; selectedUnit = null; targetPoint = null; updateSpawnOptions(); updateRtbOptions(); updateAlertOptions(); refresh(); });
       const categoryName = category => ({0:'aircraft',1:'helicopter',2:'ground',3:'ship',4:'train'})[category] || 'group';
+      const coalitionName = coalition => ({0:'neutral',1:'red',2:'blue'})[coalition] || 'unknown';
       function symbolText(group, unit) {
         if ((group.category === 0 || group.category === 1) && unit.callsign) return unit.callsign;
         return unit.type || categoryName(group.category);
@@ -242,13 +275,122 @@
         updateDraft();
       }
 
+      function updateAttackOptions() {
+        const previous = attackBase.value;
+        const coalition = sideSelect.value === 'blue' ? 2 : sideSelect.value === 'red' ? 1 : null;
+        const choices = (latestSnapshot?.airbases || []).filter(base => {
+          const config = objectiveCatalog.bases?.[base.name];
+          return config?.kind === 'objective' && base.coalition !== coalition;
+        });
+        attackBase.replaceChildren(...choices.map(base =>
+          new Option(`${base.name} · ${coalitionName(base.coalition)}`, base.name)));
+        if (choices.some(base => base.name === previous)) attackBase.value = previous;
+        attackButton.disabled = sideSelect.value === 'admin' || !attackBase.value;
+        const owned = (latestSnapshot?.airbases || []).filter(base =>
+          objectiveCatalog.bases?.[base.name] && base.coalition === coalition);
+        const previousDefense = defendBase.value;
+        defendBase.replaceChildren(...owned.map(base => new Option(base.name, base.name)));
+        if (owned.some(base => base.name === previousDefense)) defendBase.value = previousDefense;
+        defendButton.disabled = sideSelect.value === 'admin' || !defendBase.value;
+      }
+
+      function updateAlertOptions() {
+        const previous = alertFlight.value;
+        const coalition = sideSelect.value === 'blue' ? 2 : sideSelect.value === 'red' ? 1 : null;
+        const liveNames = new Set((latestSnapshot?.groups || [])
+          .filter(group => group.coalition === coalition && group.category === 0 && group.units?.length)
+          .map(group => group.name));
+        const started = new Set(latestOrders
+          .filter(order => order.session === currentSession && order.op === 'scramble' && order.state === 'accepted')
+          .map(order => order.group_name));
+        const ownedBases = new Set((latestSnapshot?.airbases || [])
+          .filter(base => base.coalition === coalition).map(base => base.name));
+        const choices = (objectiveCatalog.alert_flights || []).filter(flight =>
+          flight.side === sideSelect.value && liveNames.has(flight.name) &&
+          ownedBases.has(flight.base) && !started.has(flight.name));
+        alertFlight.replaceChildren(...choices.map(flight =>
+          new Option(`${flight.display_name} · ${flight.group_size || 1} aircraft`, flight.name)));
+        if (choices.some(flight => flight.name === previous)) alertFlight.value = previous;
+        scrambleButton.disabled = sideSelect.value === 'admin' || !alertFlight.value;
+      }
+
+      const isParkedAlert = group => {
+        if (!group || !(objectiveCatalog.alert_flights || []).some(flight => flight.name === group.name)) return false;
+        return !latestOrders.some(order => order.session === currentSession &&
+          order.group_name === group.name && order.op === 'scramble' && order.state === 'accepted');
+      };
+
+      attackButton.addEventListener('click', async () => {
+        if (attackButton.disabled) return;
+        const body = {side:sideSelect.value, base:attackBase.value, quick_trial:quickAssault.checked};
+        attackButton.disabled = true;
+        feedback.textContent = `Launching assault on ${body.base}…`;
+        try {
+          const response = await fetch('/api/attack-base', {
+            method:'POST', headers:{'Content-Type':'application/json','X-FoW-Viewer':'1'},
+            body:JSON.stringify(body)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || result.result || 'Assault rejected');
+          feedback.textContent = `Assault on ${body.base}: ${result.result}.`;
+          await refresh();
+        } catch (error) {
+          feedback.textContent = `Assault failed: ${error.message || error}`;
+        } finally {
+          updateAttackOptions();
+        }
+      });
+
+      defendButton.addEventListener('click', async () => {
+        if (defendButton.disabled) return;
+        const body = {side:sideSelect.value, base:defendBase.value};
+        defendButton.disabled = true;
+        feedback.textContent = `Deploying defenses at ${body.base}…`;
+        try {
+          const response = await fetch('/api/defend-base', {
+            method:'POST', headers:{'Content-Type':'application/json','X-FoW-Viewer':'1'},
+            body:JSON.stringify(body)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || result.result || 'Defense rejected');
+          feedback.textContent = `Defense at ${body.base}: ${result.result}.`;
+          await refresh();
+        } catch (error) {
+          feedback.textContent = `Defense failed: ${error.message || error}`;
+        } finally {
+          updateAttackOptions();
+        }
+      });
+
+      scrambleButton.addEventListener('click', async () => {
+        if (scrambleButton.disabled) return;
+        const body = {side:sideSelect.value, group:alertFlight.value};
+        scrambleButton.disabled = true;
+        feedback.textContent = `Scrambling ${body.group}…`;
+        try {
+          const response = await fetch('/api/scramble', {
+            method:'POST', headers:{'Content-Type':'application/json','X-FoW-Viewer':'1'},
+            body:JSON.stringify(body)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || result.result || 'Scramble rejected');
+          feedback.textContent = `${body.group}: start command accepted by DCS.`;
+          await refresh();
+        } catch (error) {
+          feedback.textContent = `Scramble failed: ${error.message || error}`;
+        } finally {
+          updateAlertOptions();
+        }
+      });
+
       function updateOrderOptions(group) {
         const previous = orderOp.value;
         orderOp.replaceChildren();
-        const operations = group?.category === 2
+        const parkedAlert = isParkedAlert(group);
+        const operations = parkedAlert ? [] : group?.category === 2
           ? [['move','Move to staged point'],['hold','Hold position'],['set_roe','Set fire permission']]
           : group?.category === 0
-          ? [['air_move','Fly to staged point'],['patrol','Patrol staged point'],['CAP','CAP staged point'],['rtb','Return to base']]
+          ? [['air_move','Fly to staged point'],['patrol','Patrol staged point'], ...Array.from(new Set(Object.values(airCatalog?.presets?.[sideSelect.value] || {}).filter(p => p.dcs_type === leadUnit(group)?.type && ['CAP','CAS','AWACS','tanker'].includes(p.mission_type)).map(p => p.mission_type)), role => [role, `${role} at staged point`]), ['rtb','Fly to / land at friendly base']]
           : [];
         for (const [value, label] of operations) {
           const option = document.createElement('option');
@@ -257,15 +399,15 @@
         }
         if (operations.some(([value]) => value === previous)) orderOp.value = previous;
         selectedText.textContent = group
-          ? `${aliases[group.name] || group.name} · ${leadUnit(group)?.type || categoryName(group.category)} · ${categoryName(group.category)}${operations.length ? '' : ' · no orders available yet'}`
+          ? `${aliases[group.name] || group.name} · ${leadUnit(group)?.type || categoryName(group.category)} · ${categoryName(group.category)}${parkedAlert ? ' · parked alert: use Spawn → Scramble CAP first' : operations.length ? '' : ' · no orders available yet'}`
           : 'Left-click a unit on the map or in Groups.';
         document.getElementById('alias-field').hidden = !group;
       }
 
       function updateDraft() {
-        const needsPoint = ['move','air_move','patrol','CAP'].includes(orderOp.value);
+        const needsPoint = ['move','air_move','patrol','CAP','CAS','AWACS','tanker'].includes(orderOp.value);
         document.getElementById('roe-field').hidden = orderOp.value !== 'set_roe';
-        document.getElementById('altitude-field').hidden = !['air_move','patrol','CAP'].includes(orderOp.value);
+        document.getElementById('altitude-field').hidden = !['air_move','patrol','CAP','CAS','AWACS','tanker'].includes(orderOp.value);
         document.getElementById('rtb-field').hidden = orderOp.value !== 'rtb';
         targetText.textContent = targetPoint
           ? `Staged point: ${targetPoint.lat.toFixed(5)}°, ${targetPoint.lng.toFixed(5)}°`
@@ -326,12 +468,12 @@
         const selectedOperation = orderOp.value;
         const body = {op:selectedOperation, group:selectedGroup, side:sideSelect.value};
         if (body.op === 'set_roe') body.mode = roeMode.value;
-        if (['move','air_move','patrol','CAP'].includes(selectedOperation)) {
+        if (['move','air_move','patrol','CAP','CAS','AWACS','tanker'].includes(selectedOperation)) {
           if (!targetPoint) return;
           body.lat = targetPoint.lat;
           body.lon = targetPoint.lng;
         }
-        if (['air_move','patrol','CAP'].includes(selectedOperation)) {
+        if (['air_move','patrol','CAP','CAS','AWACS','tanker'].includes(selectedOperation)) {
           const altitudeFeet = Number(airAltitude.value);
           if (!airAltitude.value || !Number.isFinite(altitudeFeet) || altitudeFeet < 3281 || altitudeFeet > 39370) {
             feedback.textContent = 'Choose an altitude between 3,281 and 39,370 ft MSL.';
@@ -340,7 +482,7 @@
           body.altitude_m = altitudeFeet / 3.28084;
         }
         let endpoint = '/api/orders';
-        if (selectedOperation === 'patrol' || selectedOperation === 'CAP') {
+        if (['patrol','CAP','CAS','AWACS','tanker'].includes(selectedOperation)) {
           endpoint = '/api/set-mission';
           body.mission_type = selectedOperation;
           delete body.op;
@@ -397,6 +539,9 @@
         aliases = dashboard.aliases || {};
         roeState = dashboard.roe || {};
         currentSession = dashboard.session;
+        updateAttackOptions();
+        updateRtbOptions();
+        updateAlertOptions();
         markers.clearLayers();
         rangeLayers.clearLayers();
         orderLayers.clearLayers();
@@ -484,6 +629,21 @@
           const icon = L.divIcon({className: '', html: `<div class="static-symbol ${side}"></div>`, iconSize:[11,11], iconAnchor:[5,5]});
           L.marker(point, {icon}).bindPopup(popup(object.name, [`${side} static · ${object.type}`, `DCS x ${object.x}, z ${object.z}`])).addTo(markers);
         }
+        for (const airbase of snapshot.airbases || []) {
+          if (!Number.isFinite(airbase.lat) || !Number.isFinite(airbase.lon)) continue;
+          const point = [airbase.lat, airbase.lon];
+          const side = coalitionName(airbase.coalition);
+          const config = objectiveCatalog.bases?.[airbase.name];
+          const color = side === 'blue' ? '#63a4ff' : side === 'red' ? '#ff7373' : '#ddd08b';
+          const marker = L.circleMarker(point, {radius:config?.kind === 'home' ? 9 : 7,
+            color, weight:3, fillColor:color, fillOpacity:0.35})
+            .bindPopup(popup(airbase.name, [
+              `${side} airbase`,
+              config?.kind === 'home' ? `${config.side} home base` : config?.kind === 'objective' ? 'Strategic objective' : 'Neutral airbase'
+            ])).addTo(markers);
+          if (config) marker.bindTooltip(`${airbase.name} · ${side}`, {permanent:true, direction:'top', offset:[0,-8]});
+          points.push(point);
+        }
         for (const [name, ring] of Object.entries(dashboard.range_rings || {})) {
           const group = (snapshot.groups || []).find(g => g.name === name);
           const unit = leadUnit(group);
@@ -525,7 +685,7 @@
           const title = document.createElement('strong');
           title.textContent = `${order.group_name} · ${order.op}`;
           const detail = document.createElement('span');
-          detail.textContent = `${order.state.replace('_',' ')} · ${new Date(order.created_at*1000).toLocaleString()}`
+          detail.textContent = `${order.detail || ''} · ${order.state.replace('_',' ')} · ${new Date(order.created_at*1000).toLocaleString()}`
             + (order.session !== currentSession ? ' · previous mission' : '');
           item.append(title, detail);
           history.append(item);
@@ -535,7 +695,7 @@
         const roster = dashboard.roster || {};
         document.getElementById('roster').textContent = `Observed roster: ${roster.present ?? 0} present · ${roster.missing ?? 0} missing (unconfirmed)`;
         if (firstFit && points.length) { fit(); firstFit = false; }
-        meta.textContent = `${snapshot.groups.length} groups · ${unitCount} units · ${(snapshot.statics || []).length} statics · mission time ${Math.round(snapshot.time)}s`;
+        meta.textContent = `${snapshot.groups.length} groups · ${unitCount} units · ${(snapshot.airbases || []).length} airbases · mission time ${Math.round(snapshot.time)}s`;
         updateDraft();
       }
 

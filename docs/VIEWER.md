@@ -21,6 +21,18 @@ The hook needs a **DCS process restart**. Then load or restart `fow.miz` in the 
 
 Open `http://127.0.0.1:8765/` on Ubuntu. From Windows, tunnel it with `ssh -L 8765:127.0.0.1:8765 USER@UBUNTU_HOST`, then open the same URL on Windows. Stop the FoW server with Ctrl+C. It needs Python 3 and the existing local bridge, with no Python package installation.
 
+### Strategic-base trial
+
+The map labels Batumi and Gudauta as Blue and Red home bases and shows the coalition DCS currently assigns to every airbase. Kobuleti, Senaki-Kolkhi, Kutaisi and Sukhumi-Babushara are configured as attackable objectives.
+
+On **Spawn**, choose **Attack base** to launch one randomized combined-arms package from a configured approach roughly 5 km from the objective. DCS receives the group and its route; DCS combat and native airbase capture determine the outcome. Each side may have two active assaults.
+
+Enable **Quick trial** to move the same configured approach to roughly 2.3 km from the airbase, just outside the nominal DCS capture radius. This is a local testing aid for observing movement, contention and capture without waiting for the full approach.
+
+Choose **Defend base** to add a randomized defense package at a strategic base DCS currently reports as owned. Alternatively choose a specific **Base defense package**, stage a point within 8 km of an owned strategic base, and spawn it there. Each base may have three active spawned defense packages. Spawned assault and defense units are capped at 80 per coalition, and active aircraft at 12 per coalition.
+
+For the first live test, attack Kobuleti from Blue, confirm the force appears on the configured southern approach, and watch whether it reaches the airfield and changes native DCS ownership. Then try a Red assault or player intervention. Automatic CAP/CAS/SEAD support is intentionally deferred until the ground capture loop is proven.
+
 1. Choose **Blue commander**. On **Orders**, left-click `FoW Blue Ground` on the map or in Groups. Right-click a nearby land point, review the staged line, then click **Send order to DCS**. The order should appear in the history and its target as a dashed line. Later observed movement appears as a solid line.
 2. With a ground group selected, choose **Hold position** to cancel movement or **Set fire permission** for Open Fire, Return Fire, or Weapon Hold. These do not need a map point.
 3. Click an existing group, edit **Display name**, and save it. This changes only its name in the FoW viewer. DCS retains its original group identifier for orders.

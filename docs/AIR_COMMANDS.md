@@ -24,3 +24,10 @@ Proposed `spawn_flight` input:
 The FoW server should validate the structured request and retain the flight plan and launch state. The mission Lua should only translate a verified preset into DCS group data and report acceptance. An AI general would use this exact command catalog later; it would choose among validated presets and points rather than emit arbitrary DCS task tables.
 
 Acceptance order: air-start CAP flight appears; follows the route; engages according to explicit ROE; returns or lands; server tracks its state. Only then test runway and ramp starts, parking allocation, and delayed launch. [pydcs](https://github.com/pydcs/dcs) supports mission generation with airport start types and task classes, but dynamic live spawning needs its own DCS `coalition.addGroup` validation. The [DCS user manual](https://www.digitalcombatsimulator.com/upload/iblock/ed6/87v22jwd1xh51i3rgki944xsf503istq/DCS_User_Manual_EN_2020.pdf) describes uncontrolled ramp starts and START triggers for delayed AI launch.
+# Ready aircraft
+
+The default scenario includes two cold, parked fighters at Batumi and two at
+Gudauta. In **Spawn → Ready aircraft**, a commander can issue **Scramble CAP**.
+DCS starts the uncontrolled group and then flies its mission-defined CAP route.
+The aircraft, route, combat, losses, landing, and base ownership remain DCS
+state; FoW only sends the native `Start` command and records that order.
