@@ -375,7 +375,10 @@
           if (hoveredGroup === group.name) hoveredGroup = null;
           updateGroupHighlights();
         });
-        marker.on('click', () => selectGroup(group.name));
+        marker.on('click', event => {
+          L.DomEvent.stopPropagation(event);
+          selectGroup(group.name);
+        });
       }
 
       function selectGroup(name) {
@@ -580,22 +583,27 @@
         }
       });
       orderOp.addEventListener('change', updateDraft);
+      function stageTarget(latlng) {
+        targetPoint = latlng;
+        updateDraft();
+        feedback.textContent = panelMode === 'orders'
+          ? `Point staged for ${aliases[selectedGroup] || selectedGroup}. Review its order before sending.`
+          : 'Spawn point or waypoint staged. Review the spawn type before sending.';
+      }
       map.on('click', () => {
         hoveredGroup = null;
         selectGroup(null);
         map.closePopup();
       });
-      map.on('contextmenu', event => {
+      map.getContainer().addEventListener('contextmenu', event => {
+        event.preventDefault();
+        event.stopPropagation();
         if (panelMode === 'orders' && !selectedGroup) {
           feedback.textContent = 'Left-click a unit first, or switch to Spawn.';
           return;
         }
-        targetPoint = event.latlng;
-        updateDraft();
-        feedback.textContent = panelMode === 'orders'
-          ? `Point staged for ${aliases[selectedGroup] || selectedGroup}. Review its order before sending.`
-          : 'Spawn point or waypoint staged. Review the spawn type before sending.';
-      });
+        stageTarget(map.mouseEventToLatLng(event));
+      }, true);
 
       sendButton.addEventListener('click', async () => {
         if (sendButton.disabled || !selectedGroup) return;
