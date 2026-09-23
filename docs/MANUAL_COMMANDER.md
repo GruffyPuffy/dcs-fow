@@ -26,7 +26,7 @@ Current curated templates are a truck, four armored vehicles, and a four-unit Ha
 
 The web map draws 45 km Hawk and 35 km Buk reference weapon-range circles when all four expected components are present. Values come from the installed pydcs 0.15 unit metadata and are **not live engagement envelopes**. DCS terrain, target altitude, radar and ROE state, ammunition, and surviving components affect actual firing. The updated mission attempts to set spawned groups to Open Fire and reports whether that call succeeded; the FoW server displays only ROE it has positively set. Existing groups show ROE `unknown` until commanded. [DCS Controller options](https://www.digitalcombatsimulator.com/en/support/faq/1267/) define the supported ground ROE values.
 
-Map unit frames now show short role labels such as `SAM`, `RAD`, `C2`, `ARM`, `INF`, and `LOG`. This is a heuristic viewer label, not certified APP-6 symbology. [milsymbol](https://github.com/spatialillusions/milsymbol) is a suitable renderer once the DCS unit taxonomy to symbol mapping is explicit. For aircraft, use the separate [manual air trial](AIR_COMMANDS.md).
+Map vehicles use silhouettes by vehicle family with their DCS type underneath. Aircraft retain milsymbol symbols and name labels. See the [viewer guide](VIEWER.md) for mapping and fallback behavior. For aircraft, use the separate [manual air trial](AIR_COMMANDS.md).
 
 ## Next experiments
 

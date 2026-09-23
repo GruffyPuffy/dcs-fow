@@ -41,7 +41,8 @@ class StoreTest(unittest.TestCase):
             store.record_snapshot(snapshot(1))
             self.assertEqual(store.dashboard()["session"], 2)
             self.assertEqual(store.dashboard()["roster"]["missing"], 0)
-            self.assertEqual(store.dashboard()["orders"][0]["session"], 1)
+            # A new mission clears the previous mission ledger.
+            self.assertEqual(store.dashboard()["orders"], [])
             self.assertEqual(store.dashboard()["tracks"]["Blue"], [[42.0, 0]])
             self.assertEqual(store.dashboard()["aliases"], {})
             self.assertEqual(store.dashboard()["roe"], {})

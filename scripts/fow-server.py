@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from fowctl import exchange
 from fow_store import Store
+from fow_contacts import ContactPicture
 import dcs_structures
 
 
@@ -82,18 +83,25 @@ def range_rings(snapshot: dict | None, catalog: dict) -> dict:
     return rings
 
 
+
 def side_view(payload: dict, side: str) -> dict:
     """Filter on the server so a coalition view never receives enemy truth."""
     if side == "admin":
         return payload
     coalition = {"red": 1, "blue": 2}[side]
+    payload["kills"] = [event for event in payload.get("kills", [])
+                        if event["side"] == coalition and event["target_side"] in (1, 2)
+                        and event["target_side"] != coalition]
     snapshot = payload.get("snapshot")
     if snapshot:
         own_groups = [g for g in snapshot.get("groups", []) if g.get("coalition") == coalition]
         names = {g["name"] for g in own_groups}
         payload["snapshot"] = {**snapshot, "groups": own_groups,
                                "statics": [s for s in snapshot.get("statics", []) if s.get("coalition") == coalition],
-                               "contacts": []}
+                               "contacts": [c for c in snapshot.get("contacts", []) if c["side"] == coalition]}
+        payload["snapshot"].pop("kill_reports", None)
+        payload["snapshot"].pop("awacs_reports", None)
+        payload["snapshot"].pop("awacs_sensor_errors", None)
         payload["orders"] = [o for o in payload["orders"] if o["group_name"] in names]
         payload["tracks"] = {name: points for name, points in payload["tracks"].items() if name in names}
         payload["range_rings"] = {name: ring for name, ring in payload["range_rings"].items() if name in names}
@@ -126,6 +134,7 @@ def main() -> None:
     lock = threading.Lock()
     state = {"snapshot": None, "received_at": None, "error": "Waiting for first DCS response"}
     stop = threading.Event()
+    contact_picture = ContactPicture()
 
     def poll() -> None:
         while not stop.is_set():
@@ -133,6 +142,9 @@ def main() -> None:
                 result = exchange(args.bridge_host, args.bridge_port, "status")
                 if not result.get("ok"):
                     raise RuntimeError(result.get("error") or result.get("result") or "DCS rejected status")
+                result["contacts"] = contact_picture.update(result)
+                result["kill_reports_available"] = "kill_reports" in result
+                result["awacs_available"] = "awacs_reports" in result
                 store.record_snapshot(result)
                 with lock:
                     state.update(snapshot=result, received_at=time.time(), error=None)
@@ -181,6 +193,9 @@ def main() -> None:
                 payload.update(store.dashboard())
                 payload["aliases"] = {**scenario_aliases(), **payload["aliases"]}
                 payload["range_rings"] = range_rings(payload["snapshot"], load_catalog())
+                for group in (payload["snapshot"] or {}).get("groups", []):
+                    if group.get("roe") in ("open_fire", "return_fire", "weapon_hold"):
+                        payload["roe"][group["name"]] = group["roe"]
                 payload = side_view(payload, sides[0])
                 body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
                 content_type = "application/json; charset=utf-8"
@@ -317,7 +332,10 @@ def main() -> None:
                         raise ValueError("Aircraft altitude must be 1000–12000 m")
                 elif op == "spawn_air":
                     preset_data = catalog["presets"][side][template]
-                    altitude_m = preset_data["altitude_m"]
+                    altitude_m = request.get("altitude_m", preset_data["altitude_m"])
+                    if (not isinstance(altitude_m, (int, float)) or isinstance(altitude_m, bool) or
+                            not math.isfinite(altitude_m) or not 1000 <= altitude_m <= 12000):
+                        raise ValueError("Aircraft altitude must be 1000–12000 m")
                     mission_type_val = preset_data["mission_type"]
                     loadout_val = preset_data.get("loadout")
                     rtb_base_val = preset_data.get("default_rtb_base")
@@ -548,7 +566,7 @@ def main() -> None:
                         store.rename_order_group(order_id, actual_name)
                 elif op == "spawn_air":
                     air_catalog_data = json.loads(AIR_CATALOG.read_text())
-                    preset_config = air_catalog_data["presets"][side][template]
+                    preset_config = {**air_catalog_data["presets"][side][template], "altitude_m": altitude_m}
                     actual_name = custom_name if custom_name else f"FoW {side.title()} {preset_config['label']} {order_id[:3]}"
                     spawn_lat, spawn_lon = dcs_structures.air_start_position(lat, lon)
 

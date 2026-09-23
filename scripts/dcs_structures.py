@@ -132,6 +132,8 @@ def build_air_spawn_data(side: str, preset_config: dict, group_template: dict | 
         unit['name'] = f"{group_name} Pilot 1"
         unit.pop('unitId', None)
         unit['skill'] = 'High'
+        unit['alt'] = preset_config['altitude_m']
+        unit['alt_type'] = 'BARO'
         unit['heading'] = initial_bearing(spawn_lat, spawn_lon, mission_lat, mission_lon)
         unit['__geo'] = {'lat': spawn_lat, 'lon': spawn_lon}
     
@@ -166,6 +168,8 @@ def build_air_spawn_data(side: str, preset_config: dict, group_template: dict | 
         'task': mission_task,
         '__geo': {'lat': mission_lat, 'lon': mission_lon},
     }
+    points[0]['alt'] = preset_config['altitude_m']
+    points[0]['alt_type'] = 'BARO'
     points[0]['__geo'] = {'lat': spawn_lat, 'lon': spawn_lon}
     group_data['__geo'] = {'lat': spawn_lat, 'lon': spawn_lon}
     

@@ -2,12 +2,17 @@
 
 from contextlib import contextmanager
 import math
+import json
 from pathlib import Path
 import sqlite3
 import time
 
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS kills (
+    session INTEGER NOT NULL, event_id INTEGER NOT NULL, report TEXT NOT NULL,
+    PRIMARY KEY(session,event_id)
+);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS orders (
     id TEXT PRIMARY KEY,
@@ -119,12 +124,19 @@ class Store:
             if (previous_mission_id and previous_mission_id != mission_id) or \
                     (previous >= 0 and mission_time < previous - 5):
                 session += 1
-                for table in ("orders", "units", "tracks", "aliases", "roe"):
+                for table in ("orders", "units", "tracks", "aliases", "roe", "kills"):
                     db.execute(f"DELETE FROM {table}")
             self.set_meta(db, "mission_id", mission_id)
             self.set_meta(db, "session", session)
             self.set_meta(db, "mission_time", mission_time)
             db.execute("UPDATE units SET present=0 WHERE session=?", (session,))
+            for event in snapshot.get("kill_reports", []):
+                report = {key: event.get(key) for key in
+                          ("id", "time", "side", "target_side", "target_type", "attacker",
+                           "attacker_group", "weapon", "contact_id")}
+                report["confirmation"] = "dcs_kill_event"
+                db.execute("INSERT OR IGNORE INTO kills VALUES(?,?,?)",
+                           (session, event["id"], json.dumps(report)))
             current_groups = {}
             for group in snapshot.get("groups", []):
                 units = group.get("units", [])
@@ -219,5 +231,7 @@ class Store:
                 "SELECT group_name,alias FROM aliases WHERE session=?", (session,))}
             roe = {row["group_name"]: row["mode"] for row in db.execute(
                 "SELECT group_name,mode FROM roe WHERE session=?", (session,))}
-            return {"session": session, "roster": counts, "orders": orders,
+            kills = [json.loads(row["report"]) for row in db.execute(
+                "SELECT report FROM kills WHERE session=? ORDER BY event_id DESC", (session,))]
+            return {"kills": kills, "session": session, "roster": counts, "orders": orders,
                     "tracks": tracks, "aliases": aliases, "roe": roe}

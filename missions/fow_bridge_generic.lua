@@ -26,14 +26,90 @@ end
 
 local sides = { coalition.side.NEUTRAL, coalition.side.RED, coalition.side.BLUE }
 
+-- Apply once per ground group. Later commander overrides must remain intact.
+local ground_roe = {}
+local function default_ground_roe(group)
+    if group:getCategory() ~= Group.Category.GROUND then return end
+    local key = group:getName() .. ':' .. group:getID()
+    if ground_roe[key] then return end
+    group:getController():setOption(AI.Option.Ground.id.ROE, AI.Option.Ground.val.ROE.OPEN_FIRE)
+    ground_roe[key] = 'open_fire'
+end
+
+-- Retain a bounded event tail so polling does not consume or duplicate events.
+local kill_reports, kill_sequence, killed_targets = {}, 0, {}
+local function safe_call(object, method)
+    if not object then return nil end
+    local ok, value = pcall(function() return object[method](object) end)
+    if ok then return value end
+end
+local kill_handler = {}
+function kill_handler:onEvent(event)
+    if event.id ~= world.event.S_EVENT_KILL then return end
+    local target_id = safe_call(event.target, 'getID')
+    if not target_id or killed_targets[target_id] then return end
+    killed_targets[target_id] = true
+    kill_sequence = kill_sequence + 1
+    local attacker_group = safe_call(event.initiator, 'getGroup')
+    local weapon_type = event.weapon_name or safe_call(event.weapon, 'getTypeName')
+    kill_reports[#kill_reports + 1] = '{"id":' .. kill_sequence
+        .. ',"time":' .. number(event.time or timer.getTime())
+        .. ',"target_id":' .. target_id
+        .. ',"target_side":' .. (safe_call(event.target, 'getCoalition') or 0)
+        .. ',"target_type":' .. quoted(safe_call(event.target, 'getTypeName') or 'Unknown target')
+        .. ',"side":' .. (safe_call(event.initiator, 'getCoalition') or 0)
+        .. ',"attacker":' .. quoted(safe_call(event.initiator, 'getName') or 'Unknown attacker')
+        .. ',"attacker_group":' .. quoted(safe_call(attacker_group, 'getName') or '')
+        .. ',"weapon":' .. quoted(weapon_type or 'Unknown') .. '}'
+    if #kill_reports > 200 then table.remove(kill_reports, 1) end
+end
+world.addEventHandler(kill_handler)
+
+-- Only current, range-resolved radar reports from AI AWACS aircraft.
+-- Never read live enemy positions for remembered or bearing-only detections.
+local function awacs_reports(unit, side)
+    if side == coalition.side.NEUTRAL or unit:getPlayerName()
+            or not unit:hasAttribute('AWACS') then return {} end
+    local reports = {}
+    local controller = unit:getController()
+    for _, detection in pairs(controller:getDetectedTargets(Controller.Detection.RADAR) or {}) do
+        local target = detection.object
+        if detection.visible and detection.distance and target and target:isExist()
+                and target:getCategory() == Object.Category.UNIT
+                and target:getCoalition() == (side == coalition.side.BLUE and coalition.side.RED or coalition.side.BLUE) then
+            local category = target:getDesc().category
+            if category == Unit.Category.AIRPLANE or category == Unit.Category.HELICOPTER then
+                local point = target:getPoint()
+                local lat, lon = coord.LOtoLL(point)
+                local identified = detection.type and ',"type":' .. quoted(target:getTypeName()) or ''
+                reports[#reports + 1] = '{"side":' .. side
+                    .. ',"target_id":' .. target:getID()
+                    .. ',"source":' .. quoted(unit:getName())
+                    .. ',"lat":' .. geo_number(lat) .. ',"lon":' .. geo_number(lon)
+                    .. ',"altitude_m":' .. number(point.y) .. identified .. '}'
+            end
+        end
+    end
+    return reports
+end
+
 function FoWBridge.status(id)
-    local groups, statics, airbases = {}, {}, {}
+    local groups, statics, airbases, reports = {}, {}, {}, {}
+    local sensor_errors = 0
     for _, side in ipairs(sides) do
         for _, group in pairs(coalition.getGroups(side) or {}) do
             if group and group:isExist() then
                 local units = {}
                 for _, unit in pairs(group:getUnits() or {}) do
                     if unit and unit:isExist() then
+                        if group:getCategory() == Group.Category.AIRPLANE then
+                            local ok, detected = pcall(awacs_reports, unit, side)
+                            if ok then
+                                for _, report in ipairs(detected) do reports[#reports + 1] = report end
+                            else
+                                sensor_errors = sensor_errors + 1
+                            end
+                        end
                         local point = unit:getPoint()
                         local velocity = unit:getVelocity()
                         local speed = math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)
@@ -60,6 +136,7 @@ function FoWBridge.status(id)
                 groups[#groups + 1] = '{"id":' .. group:getID()
                     .. ',"name":' .. quoted(group:getName())
                     .. ',"coalition":' .. side
+                    .. ',"roe":' .. quoted(ground_roe[group:getName() .. ':' .. group:getID()] or 'unknown')
                     .. ',"category":' .. group:getCategory()
                     .. ',"units":[' .. table.concat(units, ',') .. ']}'
             end
@@ -93,6 +170,9 @@ function FoWBridge.status(id)
     end
     return '{"v":1,"id":' .. quoted(id) .. ',"ok":true,"mission_id":'
         .. quoted(FoWBridge.mission_id) .. ',"time":' .. number(timer.getTime())
+        .. ',"kill_reports":[' .. table.concat(kill_reports, ',') .. ']'
+        .. ',"awacs_reports":[' .. table.concat(reports, ',') .. ']'
+        .. ',"awacs_sensor_errors":' .. sensor_errors
         .. ',"groups":[' .. table.concat(groups, ',') .. ']'
         .. ',"statics":[' .. table.concat(statics, ',') .. ']'
         .. ',"airbases":[' .. table.concat(airbases, ',') .. ']}'
@@ -125,7 +205,10 @@ function FoWBridge.spawnGroup(id, country_id, category, group_data)
     if not ok or not group then
         return reply(id, false, 'SPAWN_FAILED')
     end
-    return reply(id, true, 'SPAWN_ACCEPTED:' .. group_data.name)
+    local configured = pcall(default_ground_roe, group)
+    local suffix = category == Group.Category.GROUND and
+        (configured and ';ROE=OPEN_FIRE' or ';ROE=UNKNOWN') or ''
+    return reply(id, true, 'SPAWN_ACCEPTED:' .. group_data.name .. suffix)
 end
 
 function FoWBridge.setRoute(id, group_name, route_data)
@@ -200,6 +283,12 @@ function FoWBridge.setOption(id, group_name, option_id, value)
     
     local ok = pcall(function()
         group:getController():setOption(option_id, value)
+        if group:getCategory() == Group.Category.GROUND and option_id == AI.Option.Ground.id.ROE then
+            local modes = {[AI.Option.Ground.val.ROE.OPEN_FIRE]='open_fire',
+                [AI.Option.Ground.val.ROE.RETURN_FIRE]='return_fire',
+                [AI.Option.Ground.val.ROE.WEAPON_HOLD]='weapon_hold'}
+            ground_roe[group:getName() .. ':' .. group:getID()] = modes[value] or 'unknown'
+        end
     end)
     
     if not ok then
@@ -230,5 +319,16 @@ function FoWBridge.handle(request)
         return reply(id, false, 'UNKNOWN_OPERATION')
     end
 end
+
+-- Includes initial and late-activated groups; failed applications retry next pass.
+-- Never reapply to a group whose ROE has already been set.
+timer.scheduleFunction(function(_, now)
+    for _, side in ipairs({coalition.side.RED, coalition.side.BLUE}) do
+        for _, group in pairs(coalition.getGroups(side, Group.Category.GROUND) or {}) do
+            if group and group:isExist() then pcall(default_ground_roe, group) end
+        end
+    end
+    return now + 5
+end, nil, timer.getTime() + 1)
 
 trigger.action.outText('FOW_BRIDGE_READY', 1)

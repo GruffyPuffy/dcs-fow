@@ -49,10 +49,17 @@
     .group.selected { outline: 2px solid #f4d37c; outline-offset: -2px; }
     footer { padding: 11px 20px; border-top: 1px solid #304252; color: #a7b7c5; font-size: 11px; }
     #map { min-height: 300px; background: #243440; }
-    .symbol { height: 30px; display: grid; place-items: center; padding: 0 4px; font-weight: 800; font-size: 11px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; filter: drop-shadow(0 1px 2px #111); }
-    .symbol.blue { background: #2762b0; border: 2px solid #bbd6ff; border-radius: 4px; }
-    .symbol.red { background: #aa3737; border: 2px solid #ffd0d0; border-radius: 4px; }
-    .symbol.neutral { background: #68747c; border: 2px solid #e0e4e6; border-radius: 50%; }
+    .unit-count { position: absolute; right: -8px; top: -8px; min-width: 18px; padding: 1px 4px; border-radius: 9px; background: #17222d; border: 1px solid #dce7ef; color: #fff; font: 11px/14px system-ui; text-align: center; }
+    .unit-marker { background: none; border: 0; }
+    .unit-symbol { display: block; filter: drop-shadow(0 1px 2px #111); }
+    .unit-symbol svg { display: block; }
+    .unit-marker.group-highlight .unit-symbol { filter: drop-shadow(0 0 3px #ffe5a0) drop-shadow(0 0 5px #f4d37c); }
+    .unit-marker.group-selected::before { content: ''; position: absolute; inset: -4px; border: 1px solid #f4d37c; border-radius: 50%; background: #f4d37c18; pointer-events: none; }
+    .leaflet-tooltip.group-tooltip { background: #17222de8; border: 1px solid #718393; color: #eef3f7; box-shadow: 0 1px 4px #1118; font: 12px/1.4 system-ui, sans-serif; }
+    .leaflet-tooltip-top.group-tooltip::before { border-top-color: #718393; }
+    .unit-name { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); color: #eef3f7; font-size: 11px; font-weight: 400; line-height: 15px; white-space: nowrap; text-shadow: -1px -1px 2px #111820, 1px -1px 2px #111820, -1px 1px 2px #111820, 1px 1px 2px #111820; }
+    .symbol-fallback { display: grid; place-items: center; width: 32px; height: 32px; border: 2px solid #e0e4e6; background: #68747c; color: white; border-radius: 4px; font-size: 18px; }
+    .symbol-fallback.blue { background: #2762b0; } .symbol-fallback.red { background: #aa3737; }
     .static-symbol { width: 11px; height: 11px; border: 2px solid #fff; background: #777; border-radius: 2px; }
     .static-symbol.blue { background: #2762b0; } .static-symbol.red { background: #aa3737; }
     @media (max-width: 700px) { .shell { grid-template-columns: 1fr; grid-template-rows: 60vh minmax(0, 1fr); } aside { border-right: 0; border-bottom: 1px solid #304252; } header { padding: 9px 14px; } .summary { padding: 8px 14px; } footer { display: none; } }
@@ -66,6 +73,8 @@
         <div id="connection" class="stale">Connecting…</div>
         <div id="meta" class="subtle">Waiting for a snapshot</div>
         <label for="side">View</label> <select id="side"><option value="blue">Blue commander</option><option value="red">Red commander</option><option value="admin">Admin · full DCS state</option></select>
+        <div id="kill-summary" class="subtle"></div>
+        <div id="contact-status" class="subtle"></div>
         <div id="roster" class="subtle">Observed roster: —</div>
         <button id="fit" type="button">Fit visible units</button>
       </div>
@@ -98,11 +107,13 @@
           <div class="field" id="spawn-search-field"><label for="spawn-search">Find type</label><input id="spawn-search" type="search" placeholder="Search groups, aircraft or roles"></div>
           <label for="spawn-choice">Unit or group</label><select id="spawn-choice"></select>
           <div id="spawn-note" class="subtle"></div>
+          <div class="field" id="spawn-altitude-field" hidden><label for="spawn-altitude">Spawn altitude (ft MSL)</label><input id="spawn-altitude" type="number" min="3281" max="39370" step="1" placeholder="Preset default"></div>
           <label for="spawn-name">New group name</label><input id="spawn-name" maxlength="60" placeholder="Leave blank for a descriptive default">
           <button id="send-spawn" class="action-button" type="button" disabled>Spawn at staged point</button>
         </section>
         <section id="groups-view" class="scroll" hidden>
           <h2>Groups</h2><div id="groups"></div>
+          <h2>Confirmed kills</h2><div id="combat-log"></div>
           <h2>Recent orders</h2><div id="orders"></div>
           <details><summary>Current view JSON</summary><pre id="raw-status"></pre></details>
         </section>
@@ -113,6 +124,7 @@
     </aside>
     <main id="map" aria-label="Map of mission units"></main>
   </div>
+  <script src="https://unpkg.com/milsymbol@2.2.0/dist/milsymbol.js" integrity="sha256-HbELgZrcoJbL1zker2+XiClnDIby3PiWCGAZuClqLtE=" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
     const connection = document.getElementById('connection');
@@ -127,6 +139,10 @@
         maxZoom: 17,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
       }).addTo(map);
+      // Above tiles (200), below paths (400) and markers (600).
+      const rangePane = map.createPane('sam-ranges');
+      rangePane.style.zIndex = '250';
+      rangePane.style.pointerEvents = 'none';
       const rangeLayers = L.layerGroup().addTo(map);
       const markers = L.layerGroup().addTo(map);
       const orderLayers = L.layerGroup().addTo(map);
@@ -149,6 +165,7 @@
       const defendButton = document.getElementById('send-defense');
       const alertFlight = document.getElementById('alert-flight');
       const scrambleButton = document.getElementById('send-scramble');
+      const spawnAltitude = document.getElementById('spawn-altitude');
       const airAltitude = document.getElementById('air-altitude');
       const rtbBase = document.getElementById('rtb-base');
       const feedback = document.getElementById('order-feedback');
@@ -160,7 +177,7 @@
       const spawnTab = document.getElementById('spawn-tab');
       const groupsTab = document.getElementById('groups-tab');
       let points = [], firstFit = true, selectedGroup = null, selectedUnit = null, panelMode = 'orders';
-      let targetPoint = null, latestSnapshot = null, latestOrders = [], currentSession = null, aliases = {}, roeState = {};
+      let targetPoint = null, latestSnapshot = null, latestDashboard = null, renderedSide = null, latestOrders = [], currentSession = null, aliases = {}, roeState = {};
       const sideName = side => side === 2 ? 'blue' : side === 1 ? 'red' : 'neutral';
       const leadUnit = group => (group?.units || []).reduce((lead, unit) => !lead || unit.id < lead.id ? unit : lead, null);
       const metresToFeet = metres => metres * 3.28084;
@@ -183,6 +200,7 @@
         const previous = spawnSelect.value;
         spawnSelect.replaceChildren();
         const isAir = spawnKind.value === 'air';
+        document.getElementById('spawn-altitude-field').hidden = !isAir;
         document.getElementById('spawn-search-field').hidden = false;
         document.getElementById('spawn-note').textContent = isAir
           ? 'Air start 25 km west of the staged mission point. Transport flights hold there until ordered to a base.'
@@ -229,6 +247,7 @@
       fetch('/api/objectives').then(r => r.json()).then(value => { objectiveCatalog = value; updateAttackOptions(); updateSpawnOptions(); });
       function updateSpawnNote() {
         const entry = spawnKind.value === 'air' ? airCatalog?.presets?.[sideSelect.value]?.[spawnSelect.value] : catalog[sideSelect.value]?.[spawnSelect.value];
+        spawnAltitude.placeholder = entry?.altitude_m ? `${Math.round(metresToFeet(entry.altitude_m)).toLocaleString()} (preset default)` : 'Preset default';
         document.getElementById('spawn-note').textContent = (entry?.description || '') + (entry?.units ? ' Composition: ' + Object.entries(entry.units.reduce((counts,u) => { counts[u.type] = (counts[u.type] || 0) + 1; return counts; }, {})).map(([type,count]) => `${count} × ${type}`).join(', ') : ' Air start 25 km west of the staged point.');
       }
       spawnSelect.addEventListener('change', updateSpawnNote);
@@ -240,9 +259,74 @@
       sideSelect.addEventListener('change', () => { firstFit = true; selectedGroup = null; selectedUnit = null; targetPoint = null; updateSpawnOptions(); updateRtbOptions(); updateAlertOptions(); refresh(); });
       const categoryName = category => ({0:'aircraft',1:'helicopter',2:'ground',3:'ship',4:'train'})[category] || 'group';
       const coalitionName = coalition => ({0:'neutral',1:'red',2:'blue'})[coalition] || 'unknown';
-      function symbolText(group, unit) {
-        if ((group.category === 0 || group.category === 1) && unit.callsign) return unit.callsign;
-        return unit.type || categoryName(group.category);
+      // DCS categories are reliable; avoid guessing tactical roles from type names.
+      function symbolCode(group) {
+        const affiliation = ({2:'F', 1:'H', 0:'N'})[group.coalition] || 'U';
+        const category = ({0:'APMF------', 1:'APMH------', 2:'GPU-------',
+          3:'SP--------', 4:'GPEV------'})[group.category] || 'ZP--------';
+        return `S${affiliation}${category}---`;
+      }
+      // Visual families, not exact scale models. Unknown types keep a vehicle icon.
+      function vehicleKind(group, unit) {
+        if (group.category === 3) return 'ship';
+        if (group.category === 4) return 'train';
+        const type = String(unit.type || '').toLowerCase();
+        if (/infantry|soldier|paratrooper|manpad/.test(type)) return 'infantry';
+        if (/radar|\b(sr|tr)\b|9s18|1l13|55g6/.test(type)) return 'radar';
+        if (/avenger|strela|tunguska|shilka|vulcan|gepard|bofors|zsu|zu-23|\bln\b|sam|patriot|hawk|buk|tor 9|osa 9/.test(type) && !/\b(cc|pcp)\b/.test(type)) return 'air-defense';
+        if (/abrams|^m[- ]?1(?:a| |$)|^t[- ]?(?:55|62|64|72|80|90)|leopard|challenger|leclerc|merkava|chieftain/.test(type)) return 'tank';
+        if (/bradley|^m[- ]?2(?:a| |$)|bmp|bmd|btr|aav7|lav|stryker|warrior|marder|m113|mt-lb/.test(type)) return 'armor';
+        if (/howitzer|mortar|mlrs|grad|smerch|uragan|^2s|^m[- ]?109(?:a| |$)/.test(type)) return 'artillery';
+        if (/tanker|^atz|fuel/.test(type)) return 'tanker';
+        if (/truck|ural|818|hemtt|kamaz|kraz|zil|gaz|uaz|hmmwv|hummer|land rover|cckw/.test(type)) return 'truck';
+        return 'vehicle';
+      }
+      function vehicleArtwork(kind, coalition) {
+        const shapes = {
+          tank:'<path d="M5 24h33l5 5-5 6H7l-5-6zM13 23l3-9h15l5 9M30 16h16v4H30"/><path d="M9 29h26"/>',
+          armor:'<path d="M4 23l9-8h21l10 10v6H4zM21 15v-5h10v5M30 11h13"/><circle cx="12" cy="32" r="4"/><circle cx="24" cy="32" r="4"/><circle cx="36" cy="32" r="4"/>',
+          truck:'<path d="M3 13h25v17H3zM28 19h10l7 8v3H28zM33 21v5h9"/><circle cx="11" cy="32" r="4"/><circle cx="36" cy="32" r="4"/>',
+          tanker:'<rect x="3" y="14" width="26" height="14" rx="6"/><path d="M29 19h9l7 8v3H3M33 21v5h9"/><circle cx="11" cy="32" r="4"/><circle cx="36" cy="32" r="4"/>',
+          'air-defense':'<path d="M5 26h34l4 5-5 4H7l-4-4zM19 25v-8M11 19L31 5l4 5-20 14zM20 22L40 8l4 5-20 14z"/>',
+          radar:'<path d="M5 27h35v7H5zM24 26V15M13 6q-3 19 17 13zM25 11l9-7M35 4q9 4 7 13"/><circle cx="12" cy="34" r="3"/><circle cx="34" cy="34" r="3"/>',
+          infantry:'<circle cx="24" cy="7" r="4"/><path d="M20 14h8l3 13h-6l8 13h-6l-6-11-5 11h-6l8-16zM20 16l-7 9M27 16l8 8M31 15l7 16"/>',
+          artillery:'<path d="M10 27L38 6l4 5-28 21zM17 28L5 37M25 24l15 13"/><circle cx="20" cy="30" r="7"/>',
+          ship:'<path d="M3 26h42l-8 10H12zM15 25V15h17v10M23 15V5M23 8h12M5 40q5-5 10 0t10 0 10 0 10 0"/>',
+          train:'<rect x="10" y="5" width="28" height="29" rx="5"/><path d="M14 10h20v10H14zM15 34l-5 8M33 34l5 8M12 39h24"/><circle cx="17" cy="27" r="2"/><circle cx="31" cy="27" r="2"/>',
+          vehicle:'<path d="M4 25l6-11h26l8 11v7H4zM13 17h9v8H9M26 17h8l5 8H26"/><circle cx="12" cy="33" r="4"/><circle cx="36" cy="33" r="4"/>'
+        };
+        const color = ({2:'#8ed8f8', 1:'#ff8b8b', 0:'#b9e5bd'})[coalition] || '#f5d879';
+        return {html:`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="36" viewBox="0 0 48 46" aria-hidden="true"><g fill="${color}" stroke="#14212b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">${shapes[kind]}</g></svg>`, size:[38,36], anchor:[19,18]};
+      }
+      const symbolCache = new Map();
+      function unitIcon(group, unit, count = 1) {
+        const isVehicle = [2,3,4].includes(group.category);
+        const kind = isVehicle ? vehicleKind(group, unit) : null;
+        const code = isVehicle ? `${group.coalition}:${kind}` : symbolCode(group);
+        let artwork = symbolCache.get(code);
+        if (!artwork) {
+          if (isVehicle) {
+            artwork = vehicleArtwork(kind, group.coalition);
+          } else if (window.ms) {
+            const symbol = new ms.Symbol(code, {size:24});
+            const size = symbol.getSize();
+            const anchor = symbol.getAnchor();
+            artwork = {html:symbol.asSVG(), size:[size.width, size.height], anchor:[anchor.x, anchor.y]};
+          } else {
+            // Keep units visible if the symbol CDN cannot be reached.
+            const glyph = ({0:'✈', 1:'✈', 2:'□', 3:'⚓', 4:'▤'})[group.category] || '?';
+            artwork = {html:`<span class="symbol-fallback ${sideName(group.coalition)}">${glyph}</span>`, size:[32,32], anchor:[16,16]};
+          }
+          symbolCache.set(code, artwork);
+        }
+        const name = isVehicle
+          ? unit.type || unit.name || group.name
+          : aliases[group.name] || unit.callsign || unit.name || group.name || unit.type;
+        const title = `${name} · ${unit.type || categoryName(group.category)}`;
+        return L.divIcon({className:'unit-marker',
+          html:`<div class="unit-symbol" title="${escapeHtml(title)}">${artwork.html}</div>${count > 1 ? `<span class="unit-count">${count}</span>` : ''}<span class="unit-name">${escapeHtml(name)}</span>`,
+          iconSize:artwork.size, iconAnchor:artwork.anchor,
+          popupAnchor:[0, -artwork.anchor[1]]});
       }
       const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -261,9 +345,43 @@
       }
       document.getElementById('fit').addEventListener('click', fit);
 
+      const groupMarkers = new Map();
+      let hoveredGroup = null;
+      function updateGroupHighlights() {
+        for (const [name, members] of groupMarkers) {
+          const selected = name === selectedGroup;
+          const highlighted = selected || name === hoveredGroup;
+          for (const marker of members) {
+            const element = marker.getElement();
+            if (element) {
+              element.classList.toggle('group-highlight', highlighted);
+              element.classList.toggle('group-selected', selected);
+            }
+            marker.setZIndexOffset(selected ? 1000 : highlighted ? 500 : 0);
+          }
+        }
+      }
+      function registerGroupMarker(marker, group) {
+        if (!groupMarkers.has(group.name)) groupMarkers.set(group.name, []);
+        groupMarkers.get(group.name).push(marker);
+        const label = document.createElement('span');
+        label.textContent = aliases[group.name] || group.name;
+        marker.bindTooltip(label, {direction:'top', offset:[0,-20], className:'group-tooltip'});
+        marker.on('mouseover', () => {
+          hoveredGroup = group.name;
+          updateGroupHighlights();
+        });
+        marker.on('mouseout', () => {
+          if (hoveredGroup === group.name) hoveredGroup = null;
+          updateGroupHighlights();
+        });
+        marker.on('click', () => selectGroup(group.name));
+      }
+
       function selectGroup(name) {
         if (selectedGroup !== name) targetPoint = null;
         selectedGroup = name;
+        updateGroupHighlights();
         const group = (latestSnapshot?.groups || []).find(item => item.name === name);
         selectedUnit = leadUnit(group);
         aliasInput.value = aliases[name] || name || '';
@@ -387,7 +505,7 @@
         const previous = orderOp.value;
         orderOp.replaceChildren();
         const parkedAlert = isParkedAlert(group);
-        const operations = parkedAlert ? [] : group?.category === 2
+        const operations = parkedAlert ? [['scramble','Scramble CAP — start parked flight']] : group?.category === 2
           ? [['move','Move to staged point'],['hold','Hold position'],['set_roe','Set fire permission']]
           : group?.category === 0
           ? [['air_move','Fly to staged point'],['patrol','Patrol staged point'], ...Array.from(new Set(Object.values(airCatalog?.presets?.[sideSelect.value] || {}).filter(p => p.dcs_type === leadUnit(group)?.type && ['CAP','CAS','AWACS','tanker'].includes(p.mission_type)).map(p => p.mission_type)), role => [role, `${role} at staged point`]), ['rtb','Fly to / land at friendly base']]
@@ -397,9 +515,16 @@
           option.value = value; option.textContent = label;
           orderOp.append(option);
         }
+        orderOp.disabled = operations.length === 0;
+        if (!operations.length) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = group ? 'No orders available for this unit type' : 'Select a unit first';
+          orderOp.append(option);
+        }
         if (operations.some(([value]) => value === previous)) orderOp.value = previous;
         selectedText.textContent = group
-          ? `${aliases[group.name] || group.name} · ${leadUnit(group)?.type || categoryName(group.category)} · ${categoryName(group.category)}${parkedAlert ? ' · parked alert: use Spawn → Scramble CAP first' : operations.length ? '' : ' · no orders available yet'}`
+          ? `${aliases[group.name] || group.name} · ${leadUnit(group)?.type || categoryName(group.category)} · ${categoryName(group.category)}${parkedAlert ? ' · parked alert: scramble to start its DCS CAP route' : operations.length ? '' : ' · no orders available yet'}`
           : 'Left-click a unit on the map or in Groups.';
         document.getElementById('alias-field').hidden = !group;
       }
@@ -409,7 +534,11 @@
         document.getElementById('roe-field').hidden = orderOp.value !== 'set_roe';
         document.getElementById('altitude-field').hidden = !['air_move','patrol','CAP','CAS','AWACS','tanker'].includes(orderOp.value);
         document.getElementById('rtb-field').hidden = orderOp.value !== 'rtb';
-        targetText.textContent = targetPoint
+        targetText.textContent = panelMode === 'orders' && orderOp.value === 'scramble'
+          ? 'Starts the selected parked flight on its configured CAP route. No map destination needed.'
+          : panelMode === 'orders' && selectedGroup && !orderOp.value
+          ? 'Orders are not yet supported for this unit type.'
+          : targetPoint
           ? `Staged point: ${targetPoint.lat.toFixed(5)}°, ${targetPoint.lng.toFixed(5)}°`
           : panelMode === 'spawn' ? 'Right-click the map to stage a spawn point or aircraft waypoint.'
           : selectedGroup && needsPoint ? 'Right-click the map to stage a destination for the selected unit.'
@@ -451,6 +580,11 @@
         }
       });
       orderOp.addEventListener('change', updateDraft);
+      map.on('click', () => {
+        hoveredGroup = null;
+        selectGroup(null);
+        map.closePopup();
+      });
       map.on('contextmenu', event => {
         if (panelMode === 'orders' && !selectedGroup) {
           feedback.textContent = 'Left-click a unit first, or switch to Spawn.';
@@ -486,6 +620,9 @@
           endpoint = '/api/set-mission';
           body.mission_type = selectedOperation;
           delete body.op;
+        } else if (selectedOperation === 'scramble') {
+          endpoint = '/api/scramble';
+          delete body.op;
         } else if (selectedOperation === 'rtb') {
           endpoint = '/api/rtb';
           body.airbase = rtbBase.value;
@@ -512,13 +649,18 @@
       spawnButton.addEventListener('click', async () => {
         if (spawnButton.disabled || !targetPoint) return;
         const isAir = spawnKind.value === 'air';
+        const altitudeFeet = Number(spawnAltitude.value);
+        if (isAir && spawnAltitude.value && (!Number.isFinite(altitudeFeet) || altitudeFeet < 3281 || altitudeFeet > 39370)) {
+          feedback.textContent = 'Choose a spawn altitude between 3,281 and 39,370 ft MSL, or leave blank for the preset default.';
+          return;
+        }
         spawnButton.disabled = true;
         feedback.textContent = `Spawning ${spawnSelect.selectedOptions[0]?.textContent}…`;
         try {
           const response = await fetch(isAir ? '/api/spawn-air' : '/api/spawn', {
             method:'POST', headers:{'Content-Type':'application/json','X-FoW-Viewer':'1'},
             body:JSON.stringify({side:sideSelect.value, [isAir ? 'preset' : 'template']:spawnSelect.value,
-              name:spawnName.value.trim() || undefined, lat:targetPoint.lat, lon:targetPoint.lng})
+              name:spawnName.value.trim() || undefined, altitude_m:isAir && spawnAltitude.value ? altitudeFeet / 3.28084 : undefined, lat:targetPoint.lat, lon:targetPoint.lng})
           });
           const result = await response.json();
           if (!response.ok || !result.ok) throw new Error(result.error || result.result || 'Spawn rejected');
@@ -533,8 +675,29 @@
         }
       });
 
+      function markerBatches(group) {
+        const batches = [];
+        for (const unit of group.units || []) {
+          if (!Number.isFinite(unit.lat) || !Number.isFinite(unit.lon)) continue;
+          const pixel = map.project([unit.lat, unit.lon], map.getZoom());
+          const batch = [0,1].includes(group.category)
+            ? batches.find(b => b.unit.type === unit.type && b.pixel.distanceTo(pixel) < 44)
+            : null;
+          if (batch) batch.members.push(unit);
+          else batches.push({unit, pixel, members:[unit]});
+        }
+        return batches;
+      }
+      map.on('zoomend', () => {
+        if (latestSnapshot && latestDashboard && renderedSide === sideSelect.value && !firstFit) {
+          draw(latestSnapshot, latestDashboard);
+        }
+      });
+
       function draw(snapshot, dashboard) {
         latestSnapshot = snapshot;
+        latestDashboard = dashboard;
+        renderedSide = sideSelect.value;
         latestOrders = dashboard.orders || [];
         aliases = dashboard.aliases || {};
         roeState = dashboard.roe || {};
@@ -542,6 +705,8 @@
         updateAttackOptions();
         updateRtbOptions();
         updateAlertOptions();
+        groupMarkers.clear();
+        hoveredGroup = null;
         markers.clearLayers();
         rangeLayers.clearLayers();
         orderLayers.clearLayers();
@@ -568,14 +733,13 @@
           const side = sideName(group.coalition);
           const units = group.units || [];
           unitCount += units.length;
-          for (const unit of units) {
+          for (const {unit, members} of markerBatches(group)) {
             if (!Number.isFinite(unit.lat) || !Number.isFinite(unit.lon)) continue;
             const point = [unit.lat, unit.lon];
-            points.push(point);
-            const label = symbolText(group, unit);
-            const width = Math.max(48, Math.min(142, label.length * 7 + 16));
-            const icon = L.divIcon({className: '', html: `<div class="symbol ${side}" style="width:${width}px" title="${escapeHtml(label)}"><span>${escapeHtml(label)}</span></div>`, iconSize:[width,30], iconAnchor:[width/2,15]});
+            points.push(...members.map(member => [member.lat, member.lon]));
+            const icon = unitIcon(group, unit, members.length);
             const details = [aliases[group.name] || group.name, `DCS group: ${group.name}`, `${side} ${categoryName(group.category)} · ${unit.type}`];
+            if (members.length > 1) details.push(`${members.length} nearby aircraft: ${members.map(member => member.callsign || member.name).join(', ')}`, 'Position and flight data below refer to the representative aircraft. Zoom in to separate markers.');
             if (group.category === 0 || group.category === 1) {
               if (unit.callsign) details.push(`Callsign: ${unit.callsign}`);
               details.push(`Altitude: ${Math.round(metresToFeet(unit.y)).toLocaleString()} ft MSL`);
@@ -597,7 +761,7 @@
             }
             details.push(`DCS x ${unit.x}, z ${unit.z}`, `${unit.lat.toFixed(5)}°, ${unit.lon.toFixed(5)}°`);
             const marker = L.marker(point, {icon}).bindPopup(popup(unit.name, details)).addTo(markers);
-            marker.on('click', () => selectGroup(group.name));
+            registerGroupMarker(marker, group);
           }
           const button = document.createElement('button');
           button.type = 'button';
@@ -608,8 +772,10 @@
           name.textContent = aliases[group.name] || group.name;
           const detail = document.createElement('span');
           const latest = newestForGroup.get(group.name);
+          const killCount = (dashboard.kills || []).filter(event => event.attacker_group === group.name && event.target_side !== event.side && [1,2].includes(event.target_side)).length;
           detail.textContent = `${group.name} · ${side} ${categoryName(group.category)} · ${units.length} unit${units.length === 1 ? '' : 's'}`
             + (group.category === 2 ? ` · ROE ${(roeState[group.name] || 'unknown').replace('_',' ')}` : '')
+            + (killCount ? ` · ${killCount} confirmed kill${killCount === 1 ? '' : 's'}` : '')
             + (latest ? ` · ${latest.op}: ${latest.state.replace('_',' ')}` : '');
           button.append(name, detail);
           const firstUnit = leadUnit(group);
@@ -620,6 +786,31 @@
             });
           }
           list.append(button);
+        }
+        updateGroupHighlights();
+        const isAdminView = sideSelect.value === 'admin';
+        const contacts = isAdminView ? [] : snapshot.contacts || [];
+        document.getElementById('contact-status').hidden = isAdminView;
+        document.getElementById('contact-status').textContent = snapshot.awacs_available
+          ? `AWACS contacts: ${contacts.filter(c => c.current).length} current · ${contacts.filter(c => !c.current && !c.destroyed).length} last known`
+          : 'AWACS contacts unavailable — updated mission required';
+        for (const contact of contacts) {
+          if (!Number.isFinite(contact.lat) || !Number.isFinite(contact.lon)) continue;
+          const age = Math.round(contact.age_seconds);
+          const name = contact.type || 'Unidentified air contact';
+          const contactLabel = contact.destroyed ? `${name} · destroyed` : `${name}${contact.current ? '' : ` · ${age}s ago`}`;
+          const color = contact.side === 2 ? '#ff8b8b' : '#8ed8f8';
+          const icon = L.divIcon({className:'unit-marker', iconSize:[28,28], iconAnchor:[14,14],
+            html:`<svg width="28" height="28" viewBox="0 0 28 28"><path d="M14 2L26 14L14 26L2 14Z" fill="${color}" fill-opacity="${contact.current ? 0.8 : 0.15}" stroke="${color}" stroke-width="2" ${contact.current ? '' : 'stroke-dasharray="4 3"'}/></svg><span class="unit-name">${escapeHtml(contactLabel)}</span>`});
+          L.marker([contact.lat,contact.lon], {icon, opacity:contact.current ? 1 : 0.6})
+            .bindPopup(popup(name, [
+              `Contact ${contact.id} · ${contact.side === 2 ? 'Blue' : 'Red'} AWACS picture`,
+              contact.destroyed ? 'DCS-confirmed kill · marker at last reported position' : contact.current ? 'Detected at last server update' : `Last known position · ${age}s ago (mission time)`,
+              `Reported by: ${contact.sources.join(', ')}`,
+              'Sensor: radar',
+              `Reported altitude: ${Math.round(metresToFeet(contact.altitude_m)).toLocaleString()} ft MSL`
+            ])).addTo(markers);
+          points.push([contact.lat,contact.lon]);
         }
         for (const object of snapshot.statics || []) {
           if (!Number.isFinite(object.lat) || !Number.isFinite(object.lon)) continue;
@@ -649,8 +840,9 @@
           const unit = leadUnit(group);
           if (!unit) continue;
           const color = group.coalition === 2 ? '#6baaff' : '#ff7b7b';
-          L.circle([unit.lat, unit.lon], {radius:ring.range_m, color, weight:2, dashArray:'6,6', fillOpacity:0.025})
-            .bindPopup(popup(`${name} reference range`, [`${(ring.range_m/1000).toFixed(0)} km nominal air weapon range`, 'Terrain, altitude, radar state and ammunition affect engagement.']))
+          L.circle([unit.lat, unit.lon], {pane:'sam-ranges', interactive:false,
+            radius:ring.range_m, color, weight:2, opacity:0.65, dashArray:'6,6',
+            fillColor:color, fillOpacity:0.15})
             .addTo(rangeLayers);
         }
         for (const order of newestMovement.values()) {
@@ -677,6 +869,24 @@
             .bindPopup(popup(`${name} observed path`, [`${trail.length} sampled positions`, 'Solid line: observed · dashed line: ordered']))
             .addTo(orderLayers);
         }
+        const kills = dashboard.kills || [];
+        document.getElementById('kill-summary').textContent = `Confirmed kills: ${kills.length}`;
+        const combatLog = document.getElementById('combat-log');
+        combatLog.replaceChildren();
+        for (const event of kills.slice(0, 30)) {
+          const item = document.createElement('div');
+          item.className = 'history-item';
+          const title = document.createElement('strong');
+          const groupName = aliases[event.attacker_group] || event.attacker_group || event.attacker;
+          title.textContent = `${groupName} → ${event.target_type}`;
+          const detail = document.createElement('span');
+          const minutes = Math.floor(event.time / 60), seconds = Math.floor(event.time % 60);
+          detail.textContent = `${minutes}:${String(seconds).padStart(2,'0')} mission time · ${event.weapon} · DCS-confirmed kill`;
+          item.append(title, detail);
+          combatLog.append(item);
+        }
+        if (!kills.length) combatLog.textContent = snapshot.kill_reports_available === false
+          ? 'Kill reporting unavailable — updated mission required.' : 'No confirmed kills recorded.';
         const history = document.getElementById('orders');
         history.replaceChildren();
         for (const order of latestOrders.slice(0, 12)) {
