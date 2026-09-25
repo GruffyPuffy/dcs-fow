@@ -6,6 +6,7 @@ let situationMap;
 let situationLayers;
 let situationFitted = false;
 let situationBounds = [];
+let selectedSituationGroup = null;
 const situationSymbolCache = new Map();
 
 function activatePage(page) {
@@ -154,12 +155,14 @@ function initializeSituationMap() {
   }).addTo(situationMap);
   situationLayers = {
     objectives: L.layerGroup().addTo(situationMap),
+    missions: L.layerGroup().addTo(situationMap),
     forces: L.layerGroup().addTo(situationMap),
     airbases: L.layerGroup().addTo(situationMap),
     statics: L.layerGroup().addTo(situationMap)
   };
   L.control.layers(null, {
     Objectives: situationLayers.objectives,
+    Missions: situationLayers.missions,
     Forces: situationLayers.forces,
     Airbases: situationLayers.airbases,
     Statics: situationLayers.statics
@@ -183,6 +186,15 @@ function initializeSituationMap() {
     }
   });
   new FitControl().addTo(situationMap);
+  situationMap.on('zoomend', () => {
+    if (debugStatus?.snapshot && situationLayers) {
+      renderSituationForces(debugStatus.snapshot);
+    }
+  });
+  situationMap.on('click', () => {
+    selectedSituationGroup = null;
+    situationLayers.missions.clearLayers();
+  });
 }
 
 function fitSituationMap() {
@@ -240,7 +252,7 @@ function situationVehicleArtwork(kind, coalition) {
   };
 }
 
-function situationUnitIcon(group, unit) {
+function situationUnitIcon(group, unit, count = group.units.length) {
   const isVehicle = [2, 3, 4].includes(group.category);
   const kind = isVehicle ? situationVehicleKind(group, unit) : null;
   const code = isVehicle ? `${group.coalition}:${kind}` : situationSymbolCode(group);
@@ -260,10 +272,64 @@ function situationUnitIcon(group, unit) {
     }
     situationSymbolCache.set(code, artwork);
   }
-  const count = group.units.length;
   return L.divIcon({
     className: 'unit-marker', iconSize: artwork.size, iconAnchor: artwork.anchor,
     html: `<span class="unit-symbol">${artwork.html}</span>${count > 1 ? `<span class="unit-count">${count}</span>` : ''}`
+  });
+}
+
+function renderSituationForces(snapshot) {
+  situationLayers.forces.clearLayers();
+  const expanded = situationMap.getZoom() >= 15;
+  (snapshot?.groups || []).forEach(group => {
+    const units = (group.units || []).filter(unit =>
+      Number.isFinite(unit.lat) && Number.isFinite(unit.lon));
+    if (!units.length || ![1, 2].includes(group.coalition)) return;
+    const side = group.coalition === 2 ? 'blue' : 'red';
+    const kind = ({0: 'aircraft', 1: 'helicopter', 2: 'ground', 3: 'ship', 4: 'train'})[group.category] || 'group';
+    const visibleUnits = expanded ? units : [units[0]];
+    visibleUnits.forEach(unit => {
+      const count = expanded ? 1 : units.length;
+      const icon = situationUnitIcon(group, unit, count);
+      const title = expanded
+        ? `${escapeHtml(unit.type || unit.name)}<br>${escapeHtml(group.name)} · ${side} ${kind}`
+        : `${escapeHtml(group.name)}<br>${units.length} units · ${side} · ${kind}`;
+      const details = expanded
+        ? `<strong>${escapeHtml(unit.name || unit.type)}</strong><br>${escapeHtml(unit.type)}<br>${escapeHtml(group.name)}<br>${unit.lat.toFixed(5)}, ${unit.lon.toFixed(5)}`
+        : `<strong>${escapeHtml(group.name)}</strong><br>${units.length} units<br>Zoom in to inspect individual units`;
+      const marker = L.marker([unit.lat, unit.lon], {icon})
+        .bindTooltip(title, {className: 'map-label'})
+        .bindPopup(details)
+        .addTo(situationLayers.forces);
+      marker.on('click', event => {
+        L.DomEvent.stopPropagation(event.originalEvent);
+        selectedSituationGroup = group.name;
+        renderSituationMission(snapshot);
+      });
+    });
+  });
+  renderSituationMission(snapshot);
+}
+
+function renderSituationMission(snapshot) {
+  situationLayers.missions.clearLayers();
+  if (!selectedSituationGroup) return;
+  const group = (snapshot?.groups || []).find(item => item.name === selectedSituationGroup);
+  const deployment = (overview?.deployments || []).find(item =>
+    item.name === selectedSituationGroup || (item.names || []).includes(selectedSituationGroup));
+  const waypoints = deployment?.waypoints || [];
+  const lead = group?.units?.find(unit => Number.isFinite(unit.lat) && Number.isFinite(unit.lon));
+  if (!lead || !waypoints.length) return;
+  const route = [[lead.lat, lead.lon], ...waypoints.map(point => [point.lat, point.lon])];
+  L.polyline(route, {color: '#f5d879', weight: 3, opacity: .9, dashArray: '8 7'})
+    .addTo(situationLayers.missions);
+  waypoints.forEach((point, index) => {
+    L.circleMarker([point.lat, point.lon], {
+      radius: 7, color: '#111614', weight: 2, fillColor: '#f5d879', fillOpacity: 1
+    }).bindTooltip(escapeHtml(point.label || `Waypoint ${index + 1}`), {
+      permanent: true, direction: 'top', className: 'map-label mission-label', offset: [0, -6]
+    }).bindPopup(`<strong>${escapeHtml(group.name)}</strong><br>${escapeHtml(point.label || `Waypoint ${index + 1}`)}<br>${point.lat.toFixed(5)}, ${point.lon.toFixed(5)}`)
+      .addTo(situationLayers.missions);
   });
 }
 
@@ -304,19 +370,12 @@ function renderSituation() {
     }).bindTooltip(`${escapeHtml(base.name)} · ${side}`, {className: 'map-label'})
       .addTo(situationLayers.airbases);
   });
-  (snapshot?.groups || []).forEach(group => {
-    const lead = group.units?.[0];
-    if (!lead) return;
-    const side = group.coalition === 2 ? 'blue' : group.coalition === 1 ? 'red' : 'neutral';
-    if (side === 'neutral') return;
-    situationBounds.push([lead.lat, lead.lon]);
-    const kind = ({0: 'aircraft', 1: 'helicopter', 2: 'ground', 3: 'ship', 4: 'train'})[group.category] || 'group';
-    const icon = situationUnitIcon(group, lead);
-    L.marker([lead.lat, lead.lon], {icon})
-      .bindTooltip(`${escapeHtml(group.name)}<br>${group.units.length} units · ${side} · ${kind}`, {
-        className: 'map-label'
-      }).addTo(situationLayers.forces);
-  });
+  (snapshot?.groups || []).forEach(group => (group.units || []).forEach(unit => {
+    if (Number.isFinite(unit.lat) && Number.isFinite(unit.lon)) {
+      situationBounds.push([unit.lat, unit.lon]);
+    }
+  }));
+  renderSituationForces(snapshot);
   (snapshot?.statics || []).forEach(item => {
     const side = item.coalition === 2 ? 'blue' : item.coalition === 1 ? 'red' : 'neutral';
     L.circleMarker([item.lat, item.lon], {
@@ -357,6 +416,24 @@ function renderActions() {
   list.innerHTML = actions.length ? actions.map(action => `<div class="action-row"><strong>${labels[action.action]}</strong><span>${action.target}</span><span>${action.cost} cr</span></div>`).join('') : '<div class="empty">Start a campaign to calculate legal actions.</div>';
 }
 
+function renderGenerals() {
+  const reserve = overview.generals.reserve;
+  const deployments = overview.deployments || [];
+  for (const side of ['blue', 'red']) {
+    const sideDeployments = deployments.filter(item => item.side === side);
+    const accepted = sideDeployments.filter(item => ['accepted', 'active'].includes(item.status)).length;
+    const failed = sideDeployments.filter(item => item.status === 'failed').length;
+    const resources = overview.campaign?.resources?.[side] ?? '--';
+    document.getElementById(`${side}-general-status`).textContent = overview.campaign
+      ? `${resources} resources. ${accepted} deployments accepted${failed ? `, ${failed} failed` : ''}. Protected reserve: ${reserve}.`
+      : `Starts with a garrison at every owned objective and protects ${reserve} resources.`;
+  }
+  const countdown = overview.generals.next_income_seconds;
+  document.getElementById('general-economy').textContent =
+    `Seeded symmetric policy · income every ${overview.generals.income_interval_seconds / 60} min` +
+    (countdown === null ? ' · campaign not running' : ` · next income and decision in ${countdown}s`);
+}
+
 function render() {
   document.getElementById('scenario-name').textContent = overview.scenario.name;
   const running = Boolean(overview.campaign);
@@ -370,6 +447,7 @@ function render() {
   connection.style.color = overview.dcs.connected ? 'var(--blue)' : 'var(--red)';
   renderSituation();
   renderActions();
+  renderGenerals();
   document.getElementById('debug-output').textContent = JSON.stringify({overview, dcs: debugStatus}, null, 2);
 }
 

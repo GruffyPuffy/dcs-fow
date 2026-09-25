@@ -58,7 +58,10 @@ def offset_position(lat: float, lon: float, north_m: float, east_m: float) -> tu
 def build_air_spawn_data(side: str, preset_config: dict, group_template: dict | None, 
                          spawn_lat: float, spawn_lon: float, 
                          mission_lat: float, mission_lon: float,
-                         group_name: str) -> dict:
+                         group_name: str, *,
+                         racetrack_end: tuple[float, float] | None = None,
+                         on_station_seconds: int | None = None,
+                         rtb: tuple[str, float, float] | None = None) -> dict:
     """Build complete coalition.addGroup data for air spawn.
     
     Args:
@@ -141,7 +144,9 @@ def build_air_spawn_data(side: str, preset_config: dict, group_template: dict | 
     mission_task = _build_mission_task(
         preset_config['mission_type'],
         preset_config['altitude_m'],
-        preset_config['speed_mps']
+        preset_config['speed_mps'],
+        orbit_pattern='Race-Track' if racetrack_end else 'Circle',
+        stop_after_seconds=on_station_seconds,
     )
     
     # Handle both list and dict formats for route points
@@ -168,6 +173,37 @@ def build_air_spawn_data(side: str, preset_config: dict, group_template: dict | 
         'task': mission_task,
         '__geo': {'lat': mission_lat, 'lon': mission_lon},
     }
+    if racetrack_end and rtb:
+        while len(points) < 4:
+            points.append({})
+        points[2] = {
+            'alt': preset_config['altitude_m'],
+            'alt_type': 'BARO',
+            'speed': preset_config['speed_mps'],
+            'speed_locked': True,
+            'ETA': 0,
+            'ETA_locked': False,
+            'type': 'Turning Point',
+            'action': 'Turning Point',
+            'name': 'Racetrack endpoint',
+            'task': {'id': 'ComboTask', 'params': {'tasks': []}},
+            '__geo': {'lat': racetrack_end[0], 'lon': racetrack_end[1]},
+        }
+        points[3] = {
+            'alt': 0,
+            'alt_type': 'BARO',
+            'speed': min(150, preset_config['speed_mps']),
+            'speed_locked': True,
+            'ETA': 0,
+            'ETA_locked': False,
+            'type': 'Land',
+            'action': 'Landing',
+            'name': f'RTB {rtb[0]}',
+            'task': {'id': 'ComboTask', 'params': {'tasks': []}},
+            'airdromeId': {'__ref': 'airbase_id', 'name': rtb[0]},
+            '__geo': {'lat': rtb[1], 'lon': rtb[2]},
+        }
+        group_data['route']['points'] = points[:4]
     points[0]['alt'] = preset_config['altitude_m']
     points[0]['alt_type'] = 'BARO'
     points[0]['__geo'] = {'lat': spawn_lat, 'lon': spawn_lon}
@@ -333,7 +369,9 @@ def build_roe_option(mode: str) -> dict:
     }
 
 
-def _build_mission_task(mission_type: str, altitude_m: int, speed_mps: int) -> dict:
+def _build_mission_task(mission_type: str, altitude_m: int, speed_mps: int,
+                        orbit_pattern: str = 'Circle',
+                        stop_after_seconds: int | None = None) -> dict:
     """Build DCS task structure for mission type.
     
     Args:
@@ -348,7 +386,9 @@ def _build_mission_task(mission_type: str, altitude_m: int, speed_mps: int) -> d
         task = ({'id': 'EngageTargets', 'params': {'targetTypes': ['Ground Units'], 'priority': 0}}
                 if mission_type == 'CAS' else {'id': 'Tanker' if mission_type == 'tanker' else 'AWACS', 'params': {}})
         task.update(number=1, auto=True, enabled=True)
-        orbit = _build_mission_task('patrol', altitude_m, speed_mps)['params']['tasks'][0]
+        orbit = _build_mission_task(
+            'patrol', altitude_m, speed_mps, orbit_pattern,
+            stop_after_seconds)['params']['tasks'][0]
         orbit['number'] = 2
         return {'id': 'ComboTask', 'params': {'tasks': [task, orbit]}}
     if mission_type == 'transport':
@@ -376,7 +416,7 @@ def _build_mission_task(mission_type: str, altitude_m: int, speed_mps: int) -> d
                         'enabled': True,
                         'params': {
                             'altitude': altitude_m,
-                            'pattern': 'Circle',
+                            'pattern': orbit_pattern,
                             'speed': speed_mps,
                             'speedEdited': True,
                         },
@@ -385,7 +425,7 @@ def _build_mission_task(mission_type: str, altitude_m: int, speed_mps: int) -> d
             }
         }
     elif mission_type == 'patrol':
-        return {
+        task = {
             'id': 'ComboTask',
             'params': {
                 'tasks': [
@@ -395,7 +435,7 @@ def _build_mission_task(mission_type: str, altitude_m: int, speed_mps: int) -> d
                         'auto': False,
                         'enabled': True,
                         'params': {
-                            'pattern': 'Circle',
+                            'pattern': orbit_pattern,
                             'speed': speed_mps,
                             'altitude': altitude_m,
                             'speedEdited': True,
@@ -404,6 +444,11 @@ def _build_mission_task(mission_type: str, altitude_m: int, speed_mps: int) -> d
                 ]
             }
         }
+        if stop_after_seconds is not None:
+            task['params']['tasks'][0]['stopCondition'] = {
+                'duration': stop_after_seconds,
+            }
+        return task
     else:
         # Empty task for simple waypoint
         return {'id': 'ComboTask', 'params': {'tasks': []}}

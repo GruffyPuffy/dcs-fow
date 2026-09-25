@@ -73,6 +73,21 @@ class CampaignEngine:
         ))
         return plan
 
+    def collect_income(self, state: CampaignState) -> dict[Side, int]:
+        income = {side: 0 for side in Side}
+        for objective_id, objective_state in state.objectives.items():
+            if objective_state.owner:
+                income[objective_state.owner] += self.scenario.objectives[objective_id].income
+        for side, amount in income.items():
+            state.resources[side] += amount
+        state.events.append(CampaignEvent(
+            sequence=len(state.events) + 1,
+            kind="income_collected",
+            side=None,
+            detail={side.value: amount for side, amount in income.items()},
+        ))
+        return income
+
     def _target_is_legal(self, state: CampaignState, side: Side, target_id: str,
                          action: ActionRule) -> bool:
         owner = state.objectives[target_id].owner

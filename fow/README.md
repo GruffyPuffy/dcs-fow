@@ -7,13 +7,13 @@ viewer, and generated mission remain unchanged as a working reference.
 
 - `campaign/` owns symmetric Red/Blue rules, resources, objectives, and legal actions.
 - `dcs/` owns the bridge protocol and typed observations. Campaign code does not import it.
-- `web/` is the operational shell. Manual actions remain read-only until DCS effects and
-  reconciliation are implemented.
+- `web/` is the operational shell and debug command surface.
 - `scenarios/caucasus_pve.json` defines one shared action catalog with side-specific asset
   variants. Only Blue player slots are included in the initial PvE mission shell.
 - `assets/foothold_pve_slots.json` records Foothold's 107-slot Blue PvE roster separately
   from placement. Its Anapa/Krymsk/FARP/carrier layout still needs mapping to this scenario.
-- Persistence is planned but deliberately absent from this slice.
+- `data/fow-runtime.json` is an atomic runtime checkpoint for the current campaign. It stores
+  strategic state and deployment intent, not DCS positions.
 
 ## Run the web shell
 
@@ -23,6 +23,21 @@ python3 -m fow.app
 
 Open `http://127.0.0.1:8770/`. The service can run while DCS is offline and reports bridge
 connection state separately.
+
+Starting a campaign lets both seeded generals buy one opening garrison while preserving their
+configured reserve. Restarting the service restores `data/fow-runtime.json` and adopts existing
+DCS groups by deterministic name instead of spawning them again. If DCS restarted with a new
+mission ID, the service rehydrates missing managed deployments once.
+
+To deliberately discard the current campaign, stop the service and remove the checkpoint before
+starting it again:
+
+```bash
+rm data/fow-runtime.json
+python3 -m fow.app
+```
+
+Use `--state-file PATH` to keep the runtime checkpoint elsewhere.
 
 ## Build the minimal mission
 

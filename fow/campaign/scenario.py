@@ -20,6 +20,7 @@ class Objective:
     connections: tuple[str, ...]
     initial_owner: Side | None
     income: int
+    defense_positions: tuple[tuple[float, float], ...]
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,19 @@ class AssetPackage:
 
 
 @dataclass(frozen=True)
+class Economy:
+    income_interval_seconds: int
+    general_reserve: int
+    general_seed: int
+
+
+@dataclass(frozen=True)
+class AirStation:
+    waypoints: tuple[tuple[float, float], tuple[float, float]]
+    on_station_seconds: int
+
+
+@dataclass(frozen=True)
 class Scenario:
     id: str
     name: str
@@ -48,6 +62,8 @@ class Scenario:
     objectives: dict[str, Objective]
     actions: dict[str, ActionRule]
     assets: dict[str, AssetPackage]
+    air_stations: dict[Side, dict[str, AirStation]]
+    economy: Economy
 
     def as_public_dict(self) -> dict:
         return {
@@ -55,6 +71,23 @@ class Scenario:
             "name": self.name,
             "map": self.map,
             "starting_resources": self.starting_resources,
+            "air_stations": {
+                side.value: {
+                    role: {
+                        "waypoints": [
+                            {"lat": position[0], "lon": position[1]}
+                            for position in station.waypoints
+                        ],
+                        "on_station_seconds": station.on_station_seconds,
+                    }
+                    for role, station in stations.items()
+                }
+                for side, stations in self.air_stations.items()
+            },
+            "economy": {
+                "income_interval_seconds": self.economy.income_interval_seconds,
+                "general_reserve": self.economy.general_reserve,
+            },
             "objectives": [
                 {
                     "id": objective.id,
@@ -64,6 +97,7 @@ class Scenario:
                     "connections": list(objective.connections),
                     "initial_owner": objective.initial_owner.value if objective.initial_owner else None,
                     "income": objective.income,
+                    "defense_positions": [list(position) for position in objective.defense_positions],
                 }
                 for objective in self.objectives.values()
             ],
@@ -93,6 +127,10 @@ def load_scenario(path: Path) -> Scenario:
             connections=tuple(value.get("connections", [])),
             initial_owner=Side(value["initial_owner"]) if value.get("initial_owner") else None,
             income=int(value.get("income", 0)),
+            defense_positions=tuple(
+                (float(position["lat"]), float(position["lon"]))
+                for position in value.get("defense_positions", [])
+            ),
         )
         for objective_id, value in objective_data.items()
     }
@@ -115,6 +153,7 @@ def load_scenario(path: Path) -> Scenario:
         )
         for action_id, value in data["actions"].items()
     }
+    economy_data = data["economy"]
     scenario = Scenario(
         id=data["id"],
         name=data["name"],
@@ -123,6 +162,24 @@ def load_scenario(path: Path) -> Scenario:
         objectives=objectives,
         actions=actions,
         assets=assets,
+        air_stations={
+            Side(side): {
+                role: AirStation(
+                    waypoints=tuple(
+                        (float(position["lat"]), float(position["lon"]))
+                        for position in station["waypoints"]
+                    ),
+                    on_station_seconds=int(station["on_station_seconds"]),
+                )
+                for role, station in stations.items()
+            }
+            for side, stations in data.get("air_stations", {}).items()
+        },
+        economy=Economy(
+            income_interval_seconds=int(economy_data["income_interval_seconds"]),
+            general_reserve=int(economy_data["general_reserve"]),
+            general_seed=int(economy_data["general_seed"]),
+        ),
     )
     _validate(scenario)
     return scenario
@@ -131,10 +188,16 @@ def load_scenario(path: Path) -> Scenario:
 def _validate(scenario: Scenario) -> None:
     if scenario.starting_resources < 0:
         raise ValueError("Starting resources cannot be negative")
+    if scenario.economy.income_interval_seconds <= 0:
+        raise ValueError("Income interval must be positive")
+    if not 0 <= scenario.economy.general_reserve <= scenario.starting_resources:
+        raise ValueError("General reserve must fit within starting resources")
     homes = {side: 0 for side in Side}
     for objective in scenario.objectives.values():
         if objective.initial_owner:
             homes[objective.initial_owner] += 1
+        if not objective.defense_positions:
+            raise ValueError(f"Objective {objective.id} needs defense positions")
         for neighbor in objective.connections:
             if neighbor not in scenario.objectives:
                 raise ValueError(f"Objective {objective.id} connects to unknown objective {neighbor}")
@@ -142,6 +205,16 @@ def _validate(scenario: Scenario) -> None:
                 raise ValueError(f"Connection {objective.id}-{neighbor} is not bidirectional")
     if any(count == 0 for count in homes.values()):
         raise ValueError("Each side needs at least one initially owned objective")
+    for side in Side:
+        stations = scenario.air_stations.get(side, {})
+        for role in ("awacs", "tanker"):
+            if role not in stations:
+                raise ValueError(f"{side.value.title()} needs an {role} station")
+            station = stations[role]
+            if len(station.waypoints) != 2:
+                raise ValueError(f"{side.value.title()} {role} station needs two waypoints")
+            if station.on_station_seconds <= 0:
+                raise ValueError(f"{side.value.title()} {role} station duration must be positive")
     for action in scenario.actions.values():
         if action.cost < 0:
             raise ValueError(f"Action {action.id} has a negative cost")

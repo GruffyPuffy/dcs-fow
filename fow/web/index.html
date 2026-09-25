@@ -27,7 +27,7 @@
       <h1 id="scenario-name">Caucasus FoW</h1>
       <p id="start-copy" class="lede">No campaign is running. DCS may connect before or after the rules are initialized.</p>
       <button id="new-game" class="primary">Start new campaign</button>
-      <p class="note">In-memory trial. Save and restore are intentionally deferred.</p>
+      <p class="note">Runtime state is checkpointed locally and reconciled with DCS after restart.</p>
     </section>
 
     <section class="page situation-page" data-page="situation">
@@ -51,9 +51,10 @@
     <section class="page" data-page="generals">
       <div class="page-heading"><div><p class="eyebrow">Command policy</p><h1>Generals</h1></div><p>Both commanders will use the same rules and action catalog.</p></div>
       <div class="general-grid">
-        <section class="general blue"><h2>Blue general</h2><label>Aggressiveness <input type="range" min="0" max="100" value="50" disabled></label><p>Automated decisions are not connected yet.</p></section>
-        <section class="general red"><h2>Red general</h2><label>Aggressiveness <input type="range" min="0" max="100" value="50" disabled></label><p>Uses the same costs, limits and decision surface.</p></section>
+        <section class="general blue"><h2>Blue general</h2><p id="blue-general-status">Waiting for campaign.</p></section>
+        <section class="general red"><h2>Red general</h2><p id="red-general-status">Waiting for campaign.</p></section>
       </div>
+      <div id="general-economy" class="general-economy">Seeded symmetric policy · waiting for campaign</div>
     </section>
 
     <section class="page" data-page="manual">

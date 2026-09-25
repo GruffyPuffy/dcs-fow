@@ -47,6 +47,30 @@ class CampaignState:
     objectives: dict[str, ObjectiveState]
     events: list[CampaignEvent] = field(default_factory=list)
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "CampaignState":
+        return cls(
+            scenario_id=data["scenario_id"],
+            phase=CampaignPhase(data["phase"]),
+            resources={Side(side): int(value) for side, value in data["resources"].items()},
+            objectives={
+                objective_id: ObjectiveState(
+                    owner=Side(value["owner"]) if value.get("owner") else None,
+                    defense_level=int(value.get("defense_level", 0)),
+                )
+                for objective_id, value in data["objectives"].items()
+            },
+            events=[
+                CampaignEvent(
+                    sequence=int(event["sequence"]),
+                    kind=event["kind"],
+                    side=Side(event["side"]) if event.get("side") else None,
+                    detail=dict(event.get("detail", {})),
+                )
+                for event in data.get("events", [])
+            ],
+        )
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "scenario_id": self.scenario_id,
