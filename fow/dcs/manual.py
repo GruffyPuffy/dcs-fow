@@ -39,8 +39,13 @@ class ManualOperations:
             raise ValueError("Unknown ground template")
         lat, lon = self._coordinates(request)
         name = self._name(request, f"FoW Debug {side.title()} {template_id}")
+        template = self.ground[side][template_id]
+        lat, lon = self.gateway.ground_position(
+            lat, lon,
+            [{"dx": unit.get("dx", 0), "dy": unit.get("dy", 0)}
+             for unit in template["units"]])
         spawn_data = dcs_structures.build_ground_spawn_data(
-            side, self.ground[side][template_id], name, lat, lon)
+            side, template, name, lat, lon)
         return {"name": name, "reply": self.gateway.spawn_group(spawn_data)}
 
     def spawn_air(self, request: dict) -> dict:

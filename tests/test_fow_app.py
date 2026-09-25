@@ -44,6 +44,10 @@ class RecordingGateway:
         })
         return {"ok": True, "result": "SPAWN_ACCEPTED"}
 
+    def ground_position(self, lat, lon, offsets, search_radius=2000,
+                        airbase_clearance=1200):
+        return lat, lon
+
 
 class FoWServiceTest(unittest.TestCase):
     def setUp(self):

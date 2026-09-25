@@ -9,6 +9,8 @@ class RecordingClient:
 
     def request(self, operation, **fields):
         self.call = (operation, fields)
+        if operation == "ground_position":
+            return {"ok": True, "lat": 42.1, "lon": 41.2}
         return {"ok": True}
 
 
@@ -57,6 +59,8 @@ class DcsSnapshotTest(unittest.TestCase):
         spawn = {"country_id": 2, "category": 2, "group_data": {"name": "Test"}}
         gateway.spawn_group(spawn)
         self.assertEqual(client.call, ("spawn_group", spawn))
+        self.assertEqual(gateway.ground_position(42, 41, [{"dx": 0, "dy": 0}]),
+                         (42.1, 41.2))
         gateway.set_route("Test", {"points": []})
         self.assertEqual(client.call, (
             "set_route", {"group_name": "Test", "route_data": {"points": []}},

@@ -195,12 +195,64 @@ local function resolve(value, depth)
     return value
 end
 
+local function ground_surface_allowed(point)
+    local surface = land.getSurfaceType({x=point.x, y=point.y})
+    return surface == land.SurfaceType.LAND or surface == land.SurfaceType.ROAD
+end
+
+local function clear_of_airbases(point, clearance)
+    for _, airbase in pairs(world.getAirbases() or {}) do
+        local position = airbase:getPoint()
+        local dx, dz = point.x - position.x, point.y - position.z
+        if dx * dx + dz * dz < clearance * clearance then return false end
+    end
+    return true
+end
+
+local function footprint_allowed(point, offsets)
+    for _, offset in pairs(offsets or {}) do
+        if not ground_surface_allowed({x=point.x + (offset.dx or 0),
+                y=point.y + (offset.dy or 0)}) then return false end
+    end
+    return true
+end
+
+function FoWBridge.groundPosition(id, lat, lon, offsets, search_radius, airbase_clearance)
+    if type(lat) ~= 'number' or type(lon) ~= 'number' or type(offsets) ~= 'table' then
+        return reply(id, false, 'INVALID_GROUND_POSITION')
+    end
+    local origin = coord.LLtoLO(lat, lon)
+    local radius = math.min(math.max(tonumber(search_radius) or 2000, 0), 5000)
+    local clearance = math.min(math.max(tonumber(airbase_clearance) or 1200, 0), 5000)
+    for distance = 0, radius, 250 do
+        local directions = distance == 0 and 1 or 16
+        for index = 0, directions - 1 do
+            local angle = 2 * math.pi * index / directions
+            local candidate = {x=origin.x + distance * math.cos(angle),
+                y=origin.z + distance * math.sin(angle)}
+            if clear_of_airbases(candidate, clearance) and footprint_allowed(candidate, offsets) then
+                local found_lat, found_lon = coord.LOtoLL({x=candidate.x, y=0, z=candidate.y})
+                return '{"v":1,"id":' .. quoted(id) .. ',"ok":true,"lat":'
+                    .. geo_number(found_lat) .. ',"lon":' .. geo_number(found_lon) .. '}'
+            end
+        end
+    end
+    return reply(id, false, 'NO_SAFE_GROUND_POSITION')
+end
+
 function FoWBridge.spawnGroup(id, country_id, category, group_data)
     if Group.getByName(group_data.name) then
         return reply(id, false, 'NAME_IN_USE')
     end
     local prepared, resolved = pcall(resolve, group_data, 0)
     if not prepared then return reply(id, false, tostring(resolved)) end
+    if category == Group.Category.GROUND then
+        for _, unit in pairs(resolved.units or {}) do
+            if not ground_surface_allowed({x=unit.x, y=unit.y}) then
+                return reply(id, false, 'GROUND_SURFACE_INVALID')
+            end
+        end
+    end
     local ok, group = pcall(coalition.addGroup, country_id, category, resolved)
     if not ok or not group then
         return reply(id, false, 'SPAWN_FAILED')
@@ -304,6 +356,9 @@ function FoWBridge.handle(request)
     
     if op == 'status' then
         return FoWBridge.status(id)
+    elseif op == 'ground_position' then
+        return FoWBridge.groundPosition(id, request.lat, request.lon, request.offsets,
+            request.search_radius, request.airbase_clearance)
     elseif op == 'spawn_group' then
         return FoWBridge.spawnGroup(id, request.country_id, request.category, 
             request.group_data)

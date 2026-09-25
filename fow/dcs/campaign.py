@@ -77,6 +77,9 @@ class CampaignExecutor:
                         position[0], position[1], 250 * (index // 2), 250 * (index % 2))
                 else:
                     group_lat, group_lon = spawn_lat, spawn_lon
+                group_lat, group_lon = self.gateway.ground_position(
+                    group_lat, group_lon,
+                    [{"dx": unit.get("dx", 0), "dy": unit.get("dy", 0)} for unit in units])
                 spawn_data = dcs_structures.build_ground_spawn_data(
                     side, group_template, group_name, group_lat, group_lon, destination)
                 replies.append(self.gateway.spawn_group(spawn_data))

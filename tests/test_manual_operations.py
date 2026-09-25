@@ -32,6 +32,11 @@ class RecordingGateway:
         self.spawns.append(spawn_data)
         return {"ok": True, "result": "SPAWN_ACCEPTED"}
 
+    def ground_position(self, lat, lon, offsets, search_radius=2000,
+                        airbase_clearance=1200):
+        self.position_request = (lat, lon, offsets, search_radius, airbase_clearance)
+        return lat, lon
+
     def set_route(self, group_name, route_data):
         self.order = ("set_route", group_name, route_data)
         return {"ok": True}

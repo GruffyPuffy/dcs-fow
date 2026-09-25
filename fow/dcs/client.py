@@ -64,6 +64,16 @@ class DcsGateway:
     def spawn_group(self, spawn_data: dict[str, Any]) -> dict[str, Any]:
         return self.client.request("spawn_group", **spawn_data)
 
+    def ground_position(self, lat: float, lon: float, offsets: list[dict[str, float]],
+                        search_radius: int = 2000,
+                        airbase_clearance: int = 1200) -> tuple[float, float]:
+        reply = self.client.request(
+            "ground_position", lat=lat, lon=lon, offsets=offsets,
+            search_radius=search_radius, airbase_clearance=airbase_clearance)
+        if reply.get("ok") is not True:
+            raise RuntimeError(reply.get("result", reply.get("error", "No safe ground position")))
+        return float(reply["lat"]), float(reply["lon"])
+
     def set_route(self, group_name: str, route_data: dict[str, Any]) -> dict[str, Any]:
         return self.client.request("set_route", group_name=group_name, route_data=route_data)
 
