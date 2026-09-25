@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>FoW Command</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -29,11 +30,22 @@
       <p class="note">In-memory trial. Save and restore are intentionally deferred.</p>
     </section>
 
-    <section class="page" data-page="situation">
-      <div class="page-heading"><div><p class="eyebrow">Theatre</p><h1>Situation</h1></div><p>Resources, ownership and operational reach.</p></div>
-      <div id="resources" class="resource-band"></div>
-      <div class="graph-wrap"><svg id="campaign-graph" role="img" aria-label="Strategic objective connections"></svg></div>
-      <div id="objective-key" class="objective-key"></div>
+    <section class="page situation-page" data-page="situation">
+      <div id="situation-map" aria-label="Campaign situation map"></div>
+      <aside id="blue-stats" class="map-stats blue" aria-label="Blue statistics">
+        <strong>Blue</strong>
+        <span><b id="blue-resources">--</b> resources</span>
+        <span><b id="blue-objectives">0</b> objectives · <b id="blue-income">0</b> income</span>
+        <span><b id="blue-groups">0</b> groups · <b id="blue-units">0</b> units · <b id="blue-kills">0</b> kills</span>
+      </aside>
+      <aside id="red-stats" class="map-stats red" aria-label="Red statistics">
+        <strong>Red</strong>
+        <span><b id="red-resources">--</b> resources</span>
+        <span><b id="red-objectives">0</b> objectives · <b id="red-income">0</b> income</span>
+        <span><b id="red-groups">0</b> groups · <b id="red-units">0</b> units · <b id="red-kills">0</b> kills</span>
+      </aside>
+      <div id="map-meta" class="map-meta">Waiting for DCS</div>
+      <div class="map-key" aria-label="Map legend"><span class="blue">Blue</span><span class="red">Red</span><span class="neutral">Neutral</span></div>
     </section>
 
     <section class="page" data-page="generals">
@@ -54,9 +66,33 @@
     <section class="page" data-page="debug">
       <div class="page-heading"><div><p class="eyebrow">Engineering</p><h1>Debug</h1></div><p>Raw service state. The existing prototype remains untouched.</p></div>
       <a class="legacy-link" href="http://127.0.0.1:8765/" target="_blank" rel="noreferrer">Open legacy tactical console ↗</a>
+      <form id="debug-spawn" class="debug-tools">
+        <label>Side<select id="debug-side"><option value="blue">Blue</option><option value="red">Red</option></select></label>
+        <label>Kind<select id="debug-kind"><option value="ground">Ground</option><option value="air">Air</option></select></label>
+        <label class="debug-preset-field">Preset<select id="debug-preset"></select></label>
+        <label>Name<input id="debug-name" maxlength="80" placeholder="Generated when empty"></label>
+        <label>Latitude<input id="debug-lat" type="number" min="-90" max="90" step="0.0001" value="41.6103" required></label>
+        <label>Longitude<input id="debug-lon" type="number" min="-180" max="180" step="0.0001" value="41.5997" required></label>
+        <label id="debug-altitude-field" hidden>Altitude (m)<input id="debug-altitude" type="number" min="1000" max="12000" step="100" value="6000"></label>
+        <div class="debug-submit"><button class="primary" type="submit">Spawn group</button><span id="debug-feedback">Choose a catalog preset and coordinates.</span></div>
+      </form>
+      <form id="debug-order" class="debug-tools">
+        <label>Side<select id="order-side"><option value="blue">Blue</option><option value="red">Red</option></select></label>
+        <label class="debug-preset-field">Active group<select id="order-group"></select></label>
+        <label>Operation<select id="order-operation"><option value="move">Ground move</option><option value="hold">Ground hold</option><option value="set_roe">Ground ROE</option><option value="air_move">Air move</option><option value="set_mission">Air mission</option><option value="start">Start uncontrolled aircraft</option><option value="rtb">Return to base</option></select></label>
+        <label>Latitude<input id="order-lat" type="number" min="-90" max="90" step="0.0001" value="41.9294"></label>
+        <label>Longitude<input id="order-lon" type="number" min="-180" max="180" step="0.0001" value="41.8639"></label>
+        <label>Altitude (m)<input id="order-altitude" type="number" min="1000" max="12000" step="100" value="6000"></label>
+        <label>Mission<select id="order-mission"><option value="patrol">Patrol</option><option value="CAP">CAP</option><option value="CAS">CAS</option><option value="AWACS">AWACS</option><option value="tanker">Tanker</option></select></label>
+        <label>ROE<select id="order-roe"><option value="open_fire">Open fire</option><option value="return_fire">Return fire</option><option value="weapon_hold">Weapon hold</option></select></label>
+        <label>Recovery base<select id="order-airbase"></select></label>
+        <div class="debug-submit"><button class="primary" type="submit">Send order</button><span id="order-feedback">Select an active DCS group.</span></div>
+      </form>
       <pre id="debug-output">Loading…</pre>
     </section>
   </main>
+  <script src="https://unpkg.com/milsymbol@2.2.0/dist/milsymbol.js" integrity="sha256-HbELgZrcoJbL1zker2+XiClnDIby3PiWCGAZuClqLtE=" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="/app.js"></script>
 </body>
 </html>

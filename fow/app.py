@@ -10,7 +10,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from .campaign import CampaignEngine, CampaignState, load_scenario
-from .dcs import DcsClient, DcsGateway
+from .dcs import DcsClient, DcsGateway, ManualOperations
 
 
 ROOT = Path(__file__).resolve().parent
@@ -23,6 +23,7 @@ class FoWService:
         self.scenario = load_scenario(scenario_path)
         self.engine = CampaignEngine(self.scenario)
         self.dcs = dcs_gateway
+        self.manual = ManualOperations(dcs_gateway)
         self._lock = Lock()
         self._campaign: CampaignState | None = None
 
@@ -54,6 +55,28 @@ class FoWService:
             "persistence": {"enabled": False, "status": "planned"},
         }
 
+    def debug_status(self) -> dict[str, Any]:
+        return {
+            **self.dcs.public_status(),
+            "snapshot": self.dcs.public_snapshot(),
+        }
+
+    def debug_catalogs(self) -> dict[str, Any]:
+        return self.manual.catalogs()
+
+    def debug_spawn(self, kind: str, request: dict) -> dict[str, Any]:
+        result = (self.manual.spawn_air(request) if kind == "air"
+                  else self.manual.spawn_ground(request))
+        if result["reply"].get("ok") is not True:
+            raise RuntimeError(result["reply"].get("error", "DCS rejected spawn"))
+        return {"ok": True, **result}
+
+    def debug_order(self, request: dict) -> dict[str, Any]:
+        result = self.manual.order(request)
+        if result["reply"].get("ok") is not True:
+            raise RuntimeError(result["reply"].get("error", "DCS rejected order"))
+        return {"ok": True, **result}
+
 
 def make_handler(service: FoWService):
     class Handler(BaseHTTPRequestHandler):
@@ -76,6 +99,15 @@ def make_handler(service: FoWService):
             if path == "/api/overview":
                 self.send_json(200, service.overview())
                 return
+            if path in ("/api/status", "/api/debug/status"):
+                self.send_json(200, service.debug_status())
+                return
+            if path == "/api/catalog":
+                self.send_json(200, service.debug_catalogs()["ground"])
+                return
+            if path == "/api/air-catalog":
+                self.send_json(200, service.debug_catalogs()["air"])
+                return
             if path not in files:
                 self.send_error(404)
                 return
@@ -88,26 +120,37 @@ def make_handler(service: FoWService):
             self.wfile.write(body)
 
         def do_POST(self) -> None:
-            if urlsplit(self.path).path != "/api/campaign/new":
+            path = urlsplit(self.path).path
+            if path not in ("/api/campaign/new", "/api/spawn", "/api/spawn-air", "/api/orders"):
                 self.send_error(404)
                 return
             if self.headers.get("Content-Type", "").split(";", 1)[0] != "application/json":
                 self.send_json(415, {"ok": False, "error": "Expected JSON"})
                 return
             length = int(self.headers.get("Content-Length", "0"))
-            if length > 256:
+            if length > 4096:
                 self.send_json(413, {"ok": False, "error": "Request too large"})
                 return
+            request = {}
             if length:
                 try:
                     request = json.loads(self.rfile.read(length))
                 except json.JSONDecodeError:
                     self.send_json(400, {"ok": False, "error": "Invalid JSON"})
                     return
+            if path == "/api/campaign/new":
                 if request not in ({}, {"scenario": service.scenario.id}):
                     self.send_json(400, {"ok": False, "error": "Unknown scenario"})
                     return
-            self.send_json(201, {"ok": True, "campaign": service.new_game()})
+                self.send_json(201, {"ok": True, "campaign": service.new_game()})
+                return
+            try:
+                result = (service.debug_order(request) if path == "/api/orders" else
+                          service.debug_spawn("air" if path == "/api/spawn-air" else "ground", request))
+            except (OSError, RuntimeError, ValueError, KeyError) as error:
+                self.send_json(400, {"ok": False, "error": str(error)})
+                return
+            self.send_json(201, result)
 
         def log_message(self, format: str, *values: object) -> None:
             pass

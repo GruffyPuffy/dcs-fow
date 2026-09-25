@@ -11,6 +11,9 @@ class DcsSnapshot:
     groups: tuple[dict[str, Any], ...]
     statics: tuple[dict[str, Any], ...]
     airbases: tuple[dict[str, Any], ...]
+    kill_reports: tuple[dict[str, Any], ...]
+    awacs_reports: tuple[dict[str, Any], ...]
+    awacs_sensor_errors: int
 
     @classmethod
     def from_reply(cls, reply: dict[str, Any]) -> "DcsSnapshot":
@@ -28,6 +31,9 @@ class DcsSnapshot:
             groups=tuple(reply.get("groups", [])),
             statics=tuple(reply.get("statics", [])),
             airbases=tuple(reply.get("airbases", [])),
+            kill_reports=tuple(reply.get("kill_reports", [])),
+            awacs_reports=tuple(reply.get("awacs_reports", [])),
+            awacs_sensor_errors=int(reply.get("awacs_sensor_errors", 0)),
         )
 
     def summary(self) -> dict[str, Any]:
@@ -37,4 +43,16 @@ class DcsSnapshot:
             "groups": len(self.groups),
             "units": sum(len(group.get("units", [])) for group in self.groups),
             "airbases": len(self.airbases),
+        }
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "mission_id": self.mission_id,
+            "mission_time": self.mission_time,
+            "groups": list(self.groups),
+            "statics": list(self.statics),
+            "airbases": list(self.airbases),
+            "kill_reports": list(self.kill_reports),
+            "awacs_reports": list(self.awacs_reports),
+            "awacs_sensor_errors": self.awacs_sensor_errors,
         }

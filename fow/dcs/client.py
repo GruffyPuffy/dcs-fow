@@ -61,6 +61,26 @@ class DcsGateway:
             raise ValueError("Slot access requires at least one valid group name")
         return self.client.request("set_slot_access", slots=group_names, enabled=enabled)
 
+    def spawn_group(self, spawn_data: dict[str, Any]) -> dict[str, Any]:
+        return self.client.request("spawn_group", **spawn_data)
+
+    def set_route(self, group_name: str, route_data: dict[str, Any]) -> dict[str, Any]:
+        return self.client.request("set_route", group_name=group_name, route_data=route_data)
+
+    def set_task(self, group_name: str, task_data: dict[str, Any]) -> dict[str, Any]:
+        return self.client.request("set_task", group_name=group_name, task_data=task_data)
+
+    def set_command(self, group_name: str, command_data: dict[str, Any]) -> dict[str, Any]:
+        return self.client.request("set_command", group_name=group_name, command_data=command_data)
+
+    def set_option(self, group_name: str, option_id: int, value: int) -> dict[str, Any]:
+        return self.client.request(
+            "set_option", group_name=group_name, option_id=option_id, value=value)
+
+    def public_snapshot(self) -> dict[str, Any] | None:
+        with self._lock:
+            return self._snapshot.as_dict() if self._snapshot else None
+
     def public_status(self) -> dict[str, Any]:
         with self._lock:
             return {
