@@ -41,3 +41,9 @@ The manual commander is the test harness for a later LLM-based command layer. Th
 See the [commander note](docs/COMMANDER_NOTE.md), [plan](docs/PLAN.md), [server setup](deploy/dcs/README.md), [bridge guide](docs/BRIDGE.md), [viewer guide](docs/VIEWER.md), [command design](docs/MANUAL_COMMANDER.md), and [ADRs](docs/adr/README.md).
 
 See [curated forces and logistics](docs/LOGISTICS.md) for the new spawn catalog and the intended DCS-owned logistics direction.
+
+## Second-generation campaign service
+
+The Foothold-inspired redesign is being developed independently under [fow/](fow/README.md).
+It keeps campaign rules in Python, uses a minimal PvE mission shell, and leaves the current
+manual commander intact as a debug reference.

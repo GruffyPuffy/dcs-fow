@@ -1,0 +1,1 @@
+"""Second-generation Fog of War service."""

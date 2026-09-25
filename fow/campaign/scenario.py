@@ -1,0 +1,154 @@
+"""Load and validate campaign scenarios independently of DCS."""
+
+from dataclasses import dataclass
+import json
+from pathlib import Path
+from typing import Literal
+
+from .models import Side
+
+
+TargetOwnership = Literal["friendly", "not_friendly"]
+
+
+@dataclass(frozen=True)
+class Objective:
+    id: str
+    label: str
+    lat: float
+    lon: float
+    connections: tuple[str, ...]
+    initial_owner: Side | None
+    income: int
+
+
+@dataclass(frozen=True)
+class ActionRule:
+    id: str
+    label: str
+    cost: int
+    target_ownership: TargetOwnership
+    requires_connection: bool
+    package: str | None
+
+
+@dataclass(frozen=True)
+class AssetPackage:
+    id: str
+    label: str
+    variants: dict[Side, str]
+
+
+@dataclass(frozen=True)
+class Scenario:
+    id: str
+    name: str
+    map: str
+    starting_resources: int
+    objectives: dict[str, Objective]
+    actions: dict[str, ActionRule]
+    assets: dict[str, AssetPackage]
+
+    def as_public_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "map": self.map,
+            "starting_resources": self.starting_resources,
+            "objectives": [
+                {
+                    "id": objective.id,
+                    "label": objective.label,
+                    "lat": objective.lat,
+                    "lon": objective.lon,
+                    "connections": list(objective.connections),
+                    "initial_owner": objective.initial_owner.value if objective.initial_owner else None,
+                    "income": objective.income,
+                }
+                for objective in self.objectives.values()
+            ],
+            "actions": [
+                {
+                    "id": action.id,
+                    "label": action.label,
+                    "cost": action.cost,
+                    "target_ownership": action.target_ownership,
+                    "requires_connection": action.requires_connection,
+                    "package": action.package,
+                }
+                for action in self.actions.values()
+            ],
+        }
+
+
+def load_scenario(path: Path) -> Scenario:
+    data = json.loads(path.read_text())
+    objective_data = data["objectives"]
+    objectives = {
+        objective_id: Objective(
+            id=objective_id,
+            label=value["label"],
+            lat=float(value["lat"]),
+            lon=float(value["lon"]),
+            connections=tuple(value.get("connections", [])),
+            initial_owner=Side(value["initial_owner"]) if value.get("initial_owner") else None,
+            income=int(value.get("income", 0)),
+        )
+        for objective_id, value in objective_data.items()
+    }
+    assets = {
+        asset_id: AssetPackage(
+            id=asset_id,
+            label=value["label"],
+            variants={Side(side): variant for side, variant in value["variants"].items()},
+        )
+        for asset_id, value in data["assets"].items()
+    }
+    actions = {
+        action_id: ActionRule(
+            id=action_id,
+            label=value["label"],
+            cost=int(value["cost"]),
+            target_ownership=value["target_ownership"],
+            requires_connection=bool(value.get("requires_connection", False)),
+            package=value.get("package"),
+        )
+        for action_id, value in data["actions"].items()
+    }
+    scenario = Scenario(
+        id=data["id"],
+        name=data["name"],
+        map=data["map"],
+        starting_resources=int(data["starting_resources"]),
+        objectives=objectives,
+        actions=actions,
+        assets=assets,
+    )
+    _validate(scenario)
+    return scenario
+
+
+def _validate(scenario: Scenario) -> None:
+    if scenario.starting_resources < 0:
+        raise ValueError("Starting resources cannot be negative")
+    homes = {side: 0 for side in Side}
+    for objective in scenario.objectives.values():
+        if objective.initial_owner:
+            homes[objective.initial_owner] += 1
+        for neighbor in objective.connections:
+            if neighbor not in scenario.objectives:
+                raise ValueError(f"Objective {objective.id} connects to unknown objective {neighbor}")
+            if objective.id not in scenario.objectives[neighbor].connections:
+                raise ValueError(f"Connection {objective.id}-{neighbor} is not bidirectional")
+    if any(count == 0 for count in homes.values()):
+        raise ValueError("Each side needs at least one initially owned objective")
+    for action in scenario.actions.values():
+        if action.cost < 0:
+            raise ValueError(f"Action {action.id} has a negative cost")
+        if action.target_ownership not in ("friendly", "not_friendly"):
+            raise ValueError(f"Action {action.id} has invalid target ownership")
+        if action.package and action.package not in scenario.assets:
+            raise ValueError(f"Action {action.id} uses unknown package {action.package}")
+    for asset in scenario.assets.values():
+        if set(asset.variants) != set(Side):
+            raise ValueError(f"Asset {asset.id} must define symmetric Red and Blue variants")

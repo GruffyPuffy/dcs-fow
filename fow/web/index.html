@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FoW Command</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#start"><span>FOW</span><strong>Command</strong></a>
+    <nav aria-label="Primary">
+      <button class="tab active" data-page="start">Start</button>
+      <button class="tab" data-page="situation">Situation</button>
+      <button class="tab" data-page="generals">Generals</button>
+      <button class="tab" data-page="manual">Manual</button>
+      <button class="tab" data-page="debug">Debug</button>
+    </nav>
+    <div id="connection" class="connection">DCS offline</div>
+  </header>
+
+  <main>
+    <section class="page start-page active" data-page="start">
+      <div class="start-mark">01</div>
+      <p class="eyebrow">Campaign control</p>
+      <h1 id="scenario-name">Caucasus FoW</h1>
+      <p id="start-copy" class="lede">No campaign is running. DCS may connect before or after the rules are initialized.</p>
+      <button id="new-game" class="primary">Start new campaign</button>
+      <p class="note">In-memory trial. Save and restore are intentionally deferred.</p>
+    </section>
+
+    <section class="page" data-page="situation">
+      <div class="page-heading"><div><p class="eyebrow">Theatre</p><h1>Situation</h1></div><p>Resources, ownership and operational reach.</p></div>
+      <div id="resources" class="resource-band"></div>
+      <div class="graph-wrap"><svg id="campaign-graph" role="img" aria-label="Strategic objective connections"></svg></div>
+      <div id="objective-key" class="objective-key"></div>
+    </section>
+
+    <section class="page" data-page="generals">
+      <div class="page-heading"><div><p class="eyebrow">Command policy</p><h1>Generals</h1></div><p>Both commanders will use the same rules and action catalog.</p></div>
+      <div class="general-grid">
+        <section class="general blue"><h2>Blue general</h2><label>Aggressiveness <input type="range" min="0" max="100" value="50" disabled></label><p>Automated decisions are not connected yet.</p></section>
+        <section class="general red"><h2>Red general</h2><label>Aggressiveness <input type="range" min="0" max="100" value="50" disabled></label><p>Uses the same costs, limits and decision surface.</p></section>
+      </div>
+    </section>
+
+    <section class="page" data-page="manual">
+      <div class="page-heading"><div><p class="eyebrow">Human command</p><h1>Manual</h1></div><p>The legal strategic actions that future generals will also receive.</p></div>
+      <div class="side-switch" role="group" aria-label="Commander side"><button class="active" data-side="blue">Blue</button><button data-side="red">Red</button></div>
+      <div id="legal-actions" class="action-list"></div>
+      <p class="note">Read-only until DCS effects and reconciliation are connected.</p>
+    </section>
+
+    <section class="page" data-page="debug">
+      <div class="page-heading"><div><p class="eyebrow">Engineering</p><h1>Debug</h1></div><p>Raw service state. The existing prototype remains untouched.</p></div>
+      <a class="legacy-link" href="http://127.0.0.1:8765/" target="_blank" rel="noreferrer">Open legacy tactical console ↗</a>
+      <pre id="debug-output">Loading…</pre>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
