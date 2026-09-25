@@ -1,0 +1,60 @@
+{
+  "id": "caucasus_pve",
+  "name": "Caucasus FoW",
+  "map": "Caucasus",
+  "starting_resources": 1500,
+  "economy": {
+    "income_interval_seconds": 300,
+    "general_reserve": 500,
+    "general_seed": 149
+  },
+  "air_stations": {
+    "blue": {
+      "tanker": {"waypoints": [{"lat": 41.4500, "lon": 42.2500}, {"lat": 41.5500, "lon": 43.4000}], "on_station_seconds": 10800},
+      "awacs": {"waypoints": [{"lat": 41.2500, "lon": 42.6500}, {"lat": 41.3500, "lon": 43.8000}], "on_station_seconds": 14400}
+    },
+    "red": {
+      "tanker": {"waypoints": [{"lat": 43.6500, "lon": 40.4500}, {"lat": 43.6500, "lon": 41.6500}], "on_station_seconds": 10800},
+      "awacs": {"waypoints": [{"lat": 43.9500, "lon": 40.6500}, {"lat": 43.9500, "lon": 41.8500}], "on_station_seconds": 14400}
+    }
+  },
+  "mission": {
+    "slot_roster": "foothold_pve",
+    "player_side": "blue",
+    "coalitions": {
+      "blue": {"country": "USA", "airbases": ["Batumi"]},
+      "red": {"country": "Russia", "airbases": ["Gudauta"]}
+    },
+    "client_slots": [
+      {"name": "FoW Hornet Air", "side": "blue", "aircraft": "FA-18C_hornet", "base": "Batumi", "unlock_objective": "batumi", "start": "air", "offset_m": [-10000, 5000], "altitude_m": 3000, "speed_mps": 200},
+      {"name": "FoW Hornet Runway", "side": "blue", "aircraft": "FA-18C_hornet", "base": "Batumi", "unlock_objective": "batumi", "start": "runway"},
+      {"name": "FoW Hornet Ramp", "side": "blue", "aircraft": "FA-18C_hornet", "base": "Batumi", "unlock_objective": "batumi", "start": "cold", "parking": "10"}
+    ]
+  },
+  "objectives": {
+    "batumi": {"label": "Batumi", "lat": 41.6103, "lon": 41.5997, "connections": ["kobuleti"], "initial_owner": "blue", "income": 20, "defense_positions": [{"lat": 41.633623, "lon": 41.639426}, {"lat": 41.580193, "lon": 41.632246}]},
+    "kobuleti": {"label": "Kobuleti", "lat": 41.9294, "lon": 41.8639, "connections": ["batumi", "kutaisi"], "income": 10, "defense_positions": [{"lat": 41.910762, "lon": 41.847462}, {"lat": 41.947537, "lon": 41.844495}]},
+    "kutaisi": {"label": "Kutaisi", "lat": 42.1767, "lon": 42.4826, "connections": ["kobuleti", "senaki"], "income": 15, "defense_positions": [{"lat": 42.16298, "lon": 42.45827}, {"lat": 42.19028, "lon": 42.45622}]},
+    "senaki": {"label": "Senaki-Kolkhi", "lat": 42.2408, "lon": 42.0478, "connections": ["kutaisi", "sukhumi"], "income": 15, "defense_positions": [{"lat": 42.220991, "lon": 42.033778}, {"lat": 42.255081, "lon": 42.024499}]},
+    "sukhumi": {"label": "Sukhumi-Babushara", "lat": 42.8582, "lon": 41.1281, "connections": ["senaki", "gudauta"], "income": 10, "defense_positions": [{"lat": 42.83946, "lon": 41.13338}, {"lat": 42.87304, "lon": 41.09901}]},
+    "gudauta": {"label": "Gudauta", "lat": 43.1050, "lon": 40.6019, "connections": ["sukhumi"], "initial_owner": "red", "income": 20, "defense_positions": [{"lat": 43.138665, "lon": 40.609629}, {"lat": 43.085112, "lon": 40.602958}]}
+  },
+  "assets": {
+    "assault_force": {"label": "Combined-arms assault", "variants": {"blue": "fighting_force", "red": "fighting_force"}},
+    "garrison": {"label": "Defensive garrison", "variants": {"blue": "base_defense_force", "red": "base_defense_force"}},
+    "cap_flight": {"label": "Combat air patrol", "variants": {"blue": "hornet_cap", "red": "mig29_cap"}},
+    "cas_flight": {"label": "Close air support", "variants": {"blue": "a10c_cas", "red": "su25t_cas"}},
+    "sead_flight": {"label": "Air-defense suppression", "variants": {"blue": "hornet_sead", "red": "su25t_sead"}},
+    "awacs_flight": {"label": "Airborne early warning", "variants": {"blue": "sentry_awacs", "red": "mainstay_awacs"}},
+    "tanker_flight": {"label": "Airborne refueling", "variants": {"blue": "stratotanker_tanker", "red": "midas_tanker"}}
+  },
+  "actions": {
+    "assault": {"label": "Launch assault", "cost": 250, "target_ownership": "not_friendly", "requires_connection": true, "package": "assault_force"},
+    "reinforce": {"label": "Reinforce objective", "cost": 120, "target_ownership": "friendly", "package": "garrison"},
+    "cap": {"label": "Combat air patrol", "cost": 150, "target_ownership": "friendly", "package": "cap_flight"},
+    "cas": {"label": "Close air support", "cost": 200, "target_ownership": "not_friendly", "requires_connection": true, "package": "cas_flight"},
+    "sead": {"label": "Suppress air defenses", "cost": 225, "target_ownership": "not_friendly", "requires_connection": true, "package": "sead_flight"},
+    "awacs": {"label": "Deploy early warning", "cost": 300, "target_ownership": "friendly", "package": "awacs_flight"},
+    "tanker": {"label": "Deploy tanker", "cost": 250, "target_ownership": "friendly", "package": "tanker_flight"}
+  }
+}

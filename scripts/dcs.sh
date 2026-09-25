@@ -20,6 +20,7 @@ Usage: ./scripts/dcs.sh <command>
   status    Show container status
   logs      Follow recent container logs (Ctrl+C to exit)
   missions  Copy the repo FoW mission into DCS Saved Games
+  shell-mission  Copy the new campaign shell mission into DCS Saved Games
   bridge    Install the FoW Saved Games socket hook
   config    Prepare configuration and validate Compose without starting
   help      Show this help
@@ -111,21 +112,30 @@ prepare() {
 }
 
 deploy_missions() {
+  deploy_mission "$mission_source/fow.miz" "fow.miz"
+}
+
+deploy_shell_mission() {
+  deploy_mission "$repo_dir/fow/missions/fow-shell.miz" "fow-shell.miz"
+}
+
+deploy_mission() {
   require_data_disk
   mkdir -p "$mission_target"
   if [[ ! -w "$mission_target" ]]; then
     echo "$mission_target is not writable by $(id -un)." >&2
     exit 1
   fi
-  local source="$mission_source/fow.miz"
-  local destination="$mission_target/fow.miz"
+  local source="$1"
+  local filename="$2"
+  local destination="$mission_target/$filename"
   local temporary
   if [[ ! -f "$source" ]]; then
     echo "Missing repo mission: $source" >&2
     exit 1
   fi
   if [[ -f "$destination" ]] && cmp -s "$source" "$destination"; then
-    echo "Already current: fow.miz"
+    echo "Already current: $filename"
     return
   fi
   temporary="$(mktemp "$mission_target/.fow-mission.XXXXXX")"
@@ -179,6 +189,9 @@ case "$command" in
     ;;
   missions)
     deploy_missions
+    ;;
+  shell-mission)
+    deploy_shell_mission
     ;;
   bridge)
     deploy_bridge

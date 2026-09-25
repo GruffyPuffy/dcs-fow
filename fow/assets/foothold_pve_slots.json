@@ -1,0 +1,35 @@
+{
+  "id": "foothold_pve",
+  "source": "Foothold 1.4.9",
+  "player_side": "blue",
+  "policy": "Player slots do not participate in Red/Blue campaign balance.",
+  "fixed_wing": [
+    {"aircraft": "Su-25T", "source_slots": 4},
+    {"aircraft": "F-15C", "source_slots": 4},
+    {"aircraft": "A-10C_2", "source_slots": 4},
+    {"aircraft": "FA-18C_hornet", "source_slots": 6},
+    {"aircraft": "AV8BNA", "source_slots": 6},
+    {"aircraft": "F-14B", "source_slots": 4},
+    {"aircraft": "F-16C_50", "source_slots": 4},
+    {"aircraft": "JF-17", "source_slots": 2},
+    {"aircraft": "AJS37", "source_slots": 2},
+    {"aircraft": "M-2000C", "source_slots": 4},
+    {"aircraft": "MiG-21Bis", "source_slots": 4},
+    {"aircraft": "Mirage-F1EE", "source_slots": 4},
+    {"aircraft": "F-15ESE", "source_slots": 4, "requires_catalog_support": true}
+  ],
+  "helicopters": [
+    {"aircraft": "Ka-50", "source_slots": 9},
+    {"aircraft": "Ka-50_3", "source_slots": 8},
+    {"aircraft": "Mi-8MT", "source_slots": 5},
+    {"aircraft": "Mi-24P", "source_slots": 9},
+    {"aircraft": "UH-1H", "source_slots": 5},
+    {"aircraft": "SA342L", "source_slots": 5},
+    {"aircraft": "SA342M", "source_slots": 5},
+    {"aircraft": "AH-64D_BLK_II", "source_slots": 9}
+  ],
+  "placement": {
+    "source_bases": ["Anapa-Vityazevo", "Bravo FARP", "Krymsk", "Echo FARP", "Tarawa", "Carrier Group"],
+    "status": "pending scenario-base mapping"
+  }
+}
