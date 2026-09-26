@@ -14,6 +14,9 @@ class AlgorithmicGeneral:
     decision_interval_seconds = 60
     spend_rate_per_second = 1.0
     bucket_capacity = 300
+    # Max live ground groups per side. Protects the DCS server from runaway
+    # spawning; the general stops buying ground forces at the cap.
+    max_ground_groups = 40
 
     def __init__(self, side: Side, engine: CampaignEngine, seed: int, reserve: int,
                  opening_endowment: int = 0):
@@ -38,6 +41,10 @@ class AlgorithmicGeneral:
         # Player requests awaiting approval (e.g. JTAC support). The general
         # approves them on the normal cadence if the budget allows.
         self.pending_requests: list[dict] = []
+        # Live ground group count, fed by the service from the DCS snapshot.
+        self.live_ground_groups = 0
+        # Set when the next CAP purchase is a free AWACS escort (doctrine).
+        self.free_escort = False
         # Human-readable decision log for tuning: one entry per choose_action.
         self.decision_log: list[dict] = []
         self._bucket = self.bucket_capacity
@@ -64,13 +71,19 @@ class AlgorithmicGeneral:
     def _affordable(self, state: CampaignState, plans: list[ActionPlan],
                     urgent: bool) -> list[ActionPlan]:
         """Filter plans by resources and the spending bucket. Urgent reactions
-        (counter-attacks, support replacement) may overdraw the bucket. The
-        reserve is a soft floor: routine spending must keep half the reserve,
-        but cheap actions (<= 150) are always allowed so a side never idles
-        just because its balance dipped."""
+        (counter-attacks, support replacement) may overdraw the bucket.
+        Assaults are the point of the game: they only need a small token
+        balance (100), otherwise the reserve locks both sides into passivity.
+        Reinforcing what we own is maintenance (50 floor). Other expensive
+        actions keep the reserve as a soft floor."""
         result = []
         for plan in plans:
-            floor = self.reserve if plan.cost > 150 else self.reserve // 2
+            if plan.action == "reinforce":
+                floor = 50
+            elif plan.action == "assault":
+                floor = 100
+            else:
+                floor = self.reserve if plan.cost > 150 else self.reserve // 2
             if state.resources[self.side] - plan.cost < floor:
                 continue
             if urgent or self._bucket >= plan.cost:
@@ -142,8 +155,12 @@ class AlgorithmicGeneral:
 
     def choose_action(self, state: CampaignState) -> ActionPlan | None:
         all_plans = [plan for plan in self.engine.legal_actions(state, self.side)
-                     if plan.action in ("assault", "reinforce", "awacs", "tanker", "cap")
+                     if plan.action in ("assault", "reinforce", "awacs", "tanker", "cap", "strike")
                      and self.scenario_objective_kind(plan.target) != "carrier"]
+        # Force cap: at the limit, only air/support actions remain.
+        if self.live_ground_groups >= self.max_ground_groups:
+            all_plans = [plan for plan in all_plans
+                         if plan.action not in ("assault", "reinforce")]
         # Reactive triggers first: counter-attack a lost objective or reinforce
         # a threatened one. These may overdraw the bucket.
         urgent = [plan for plan in all_plans
@@ -151,11 +168,13 @@ class AlgorithmicGeneral:
                   or (plan.action == "reinforce" and plan.target in self.threatened)]
         urgent = self._affordable(state, urgent, urgent=True)
         # Support replacement is also urgent (standing rule): always airborne.
+        # It ignores the reserve floor entirely - a side without AWACS/tanker
+        # is blind and unfuelled, which is worse than a low balance.
         if "awacs" not in self.live_support or "tanker" not in self.live_support:
             urgent += [plan for plan in all_plans
                        if plan.action in ("awacs", "tanker")
                        and plan.action not in self.live_support
-                       and state.resources[self.side] - plan.cost >= self.reserve]
+                       and state.resources[self.side] - plan.cost >= 50]
         routine = self._affordable(state, all_plans, urgent=False)
         choice = self._choose(state, urgent, routine)
         if choice:
@@ -207,6 +226,14 @@ class AlgorithmicGeneral:
             escorts = [plan for plan in plans if plan.action == "cap"]
             if escorts:
                 return self._random.choice(escorts)
+        # Free escort: one CAP per AWACS is doctrine, not an expense. If the
+        # AWACS is live but the general has no CAP budgeted, buy one anyway
+        # (the service refunds the cost via the free_escort flag).
+        if "awacs" in self.live_support and "cap" not in self.live_support:
+            escorts = [plan for plan in plans if plan.action == "cap"]
+            if escorts:
+                self.free_escort = True
+                return escorts[0]
         assaults = [plan for plan in plans if plan.action == "assault"]
         candidates = assaults if assaults and self._random.random() < 0.7 else plans
         return self._random.choice(candidates)

@@ -118,11 +118,11 @@ class FoWServiceTest(unittest.TestCase):
         self.service.tick()
         overview = self.service.overview()
         resources = overview["campaign"]["resources"]
-        # Blue keeps a half reserve (underdog pushing), Red the full one.
-        # The tick catches up several decision rounds, so Blue may spend down
-        # to its 250 floor minus one cheap action.
-        self.assertGreaterEqual(resources["blue"], 200)
-        self.assertGreaterEqual(resources["red"], 500)
+        # Both sides may spend down to their 50-credit token floor: the tick
+        # catches up several decision rounds and (with no DCS snapshot in the
+        # stub) support replacement and garrison maintenance are urgent.
+        self.assertGreaterEqual(resources["blue"], 50)
+        self.assertGreaterEqual(resources["red"], 50)
         self.assertIn("income_collected", [
             event["kind"] for event in overview["campaign"]["events"]])
 

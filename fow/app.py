@@ -4,6 +4,7 @@
 import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import math
 from pathlib import Path
 from threading import Event, Lock, Thread
 import time
@@ -12,7 +13,8 @@ from urllib.parse import urlsplit
 
 from .campaign import ActionPlan, AlgorithmicGeneral, CampaignEngine, CampaignState, Side, load_scenario
 from .dcs import CampaignExecutor, DcsClient, DcsGateway, ManualOperations
-from .dcs.awareness import Awareness
+from .dcs.awareness import Awareness, distance_m
+from scripts import dcs_structures
 from .runtime import RuntimeCheckpoint
 
 
@@ -169,6 +171,11 @@ class FoWService:
                     if choice:
                         plan = self.engine.apply_action(
                             self._campaign, side, choice.action, choice.target)
+                        # A CAP bought as a free AWACS escort is doctrine, not
+                        # an expense: refund the cost immediately.
+                        if general.free_escort and choice.action == "cap":
+                            self._campaign.resources[side] += plan.cost
+                            general.free_escort = False
                         sequence = len(self._campaign.events)
                         jobs.append((plan, sequence))
                         self._deployments.append(self._deployment(plan, sequence))
@@ -212,7 +219,8 @@ class FoWService:
                             "status": "pending",
                         })
             # Report live support flights (AWACS/tanker) to each general so it
-            # can replace losses and escort the AWACS.
+            # can replace losses and escort the AWACS, plus live ground group
+            # counts for the force cap.
             for side in Side:
                 self._generals[side].live_support = {
                     deployment["action"] for deployment in self._deployments
@@ -223,6 +231,13 @@ class FoWService:
                     & {group.get("name") for group in snapshot.get("groups", [])
                        if group.get("units")}
                 }
+                self._generals[side].live_ground_groups = sum(
+                    1 for group in snapshot.get("groups", [])
+                    if group.get("coalition") == (1 if side == Side.RED else 2)
+                    and group.get("category") == 2 and group.get("units")
+                    # Only offensive groups count against the cap; garrisons
+                    # are the opening posture, not runaway spawning.
+                    and " Assault " in str(group.get("name", "")))
             presence = self.awareness.objective_presence(self.scenario, snapshot)
             flips = self.engine.evaluate_capture(self._campaign, presence)
             # Reactive triggers: an objective we own with enemy ground present
@@ -241,8 +256,62 @@ class FoWService:
                     flip["objective"] for flip in flips if flip["to"] == enemy[side].value}
             if flips:
                 self._apply_slot_access()
+                self._reposition_support(flips)
                 self._save_locked()
             self._send_intel(flips, presence)
+
+    def _reposition_support(self, flips: list[dict]) -> None:
+        """AWACS controller: when territory near a support racetrack changes
+        hands, reposition the flight away from the front. The racetrack is
+        shifted toward the side's home objective."""
+        snapshot = self.dcs.public_snapshot()
+        if snapshot is None:
+            return
+        live = {group.get("name"): group for group in snapshot.get("groups", [])
+                if group.get("units")}
+        for deployment in self._deployments:
+            if (deployment["action"] not in ("awacs", "tanker")
+                    or deployment["status"] != "active"):
+                continue
+            if not any(name in live for name in deployment.get("names", [])):
+                continue
+            station = self.scenario.air_stations.get(
+                Side(deployment["side"]), {}).get(deployment["action"])
+            if not station:
+                continue
+            # If any flipped objective is within 60 km of the racetrack,
+            # pull the station 40 km toward the side's home objective.
+            home = next((obj for obj in self.scenario.objectives.values()
+                         if obj.initial_owner == Side(deployment["side"])), None)
+            if home is None:
+                continue
+            for flip in flips:
+                objective = self.scenario.objectives[flip["objective"]]
+                near = any(
+                    distance_m(objective.lat, objective.lon, wp[0], wp[1]) < 60_000
+                    for wp in station.waypoints)
+                if not near:
+                    continue
+                # Shift both waypoints 40 km toward home.
+                shifted = []
+                for wp in station.waypoints:
+                    bearing = dcs_structures.initial_bearing(
+                        wp[0], wp[1], home.lat, home.lon)
+                    shifted.append(dcs_structures.offset_position(
+                        wp[0], wp[1], 40_000 * math.cos(bearing),
+                        40_000 * math.sin(bearing)))
+                group_name = next(
+                    name for name in deployment.get("names", []) if name in live)
+                lead = live[group_name]["units"][0]
+                route = dcs_structures.build_racetrack_route(
+                    lead["lat"], lead["lon"], shifted[0], shifted[1],
+                    9000 if deployment["action"] == "awacs" else 8000, 180,
+                    "AWACS" if deployment["action"] == "awacs" else "tanker")
+                try:
+                    self.dcs.set_route(group_name, route)
+                except (OSError, RuntimeError, ValueError):
+                    pass  # DCS offline or group gone; next flip retries
+                break
 
     def _send_intel(self, flips: list[dict], presence: dict) -> None:
         """Balanced intel to Blue players: what Blue's own forces do, plus

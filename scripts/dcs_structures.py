@@ -306,6 +306,54 @@ def build_rtb_task(airbase_name: str, airbase_lat: float, airbase_lon: float,
     }
 
 
+def build_racetrack_route(current_lat: float, current_lon: float,
+                          start: tuple[float, float], end: tuple[float, float],
+                          altitude_m: int, speed_mps: int,
+                          mission_type: str = 'AWACS') -> dict:
+    """Build a racetrack orbit route update for an existing support flight.
+
+    Used by the AWACS controller to reposition the racetrack away from
+    threatened airspace without respawning the aircraft.
+    """
+    mission_task = _build_mission_task(mission_type, altitude_m, speed_mps,
+                                       orbit_pattern='Race-Track')
+    return {'route_data': {'points': [
+        {
+            'alt': altitude_m,
+            'alt_type': 'BARO',
+            'speed': speed_mps,
+            'speed_locked': True,
+            'type': 'Turning Point',
+            'action': 'Turning Point',
+            'name': 'Station start',
+            'task': mission_task,
+            '__geo': {'lat': current_lat, 'lon': current_lon},
+        },
+        {
+            'alt': altitude_m,
+            'alt_type': 'BARO',
+            'speed': speed_mps,
+            'speed_locked': True,
+            'type': 'Turning Point',
+            'action': 'Turning Point',
+            'name': 'Station start',
+            'task': {'id': 'ComboTask', 'params': {'tasks': []}},
+            '__geo': {'lat': start[0], 'lon': start[1]},
+        },
+        {
+            'alt': altitude_m,
+            'alt_type': 'BARO',
+            'speed': speed_mps,
+            'speed_locked': True,
+            'type': 'Turning Point',
+            'action': 'Turning Point',
+            'name': 'Station end',
+            'task': {'id': 'ComboTask', 'params': {'tasks': []}},
+            '__geo': {'lat': end[0], 'lon': end[1]},
+        },
+    ]}}
+
+
 def build_ground_route(current_lat: float, current_lon: float, lat: float, lon: float) -> dict:
     """Build ground unit move order.
     

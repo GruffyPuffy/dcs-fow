@@ -9,12 +9,12 @@
     "general_seed": 149,
     "red_opening_endowment": 900,
     "red_income_factor": 0.9,
-    "blue_income_factor": 1.0
+    "blue_income_factor": 1.5
   },
   "air_stations": {
     "blue": {
-      "tanker": {"waypoints": [{"lat": 44.7500, "lon": 36.7000}, {"lat": 44.8500, "lon": 37.9000}], "on_station_seconds": 10800},
-      "awacs": {"waypoints": [{"lat": 44.6500, "lon": 36.9000}, {"lat": 44.7500, "lon": 38.1000}], "on_station_seconds": 14400}
+      "tanker": {"waypoints": [{"lat": 44.8500, "lon": 36.9000}, {"lat": 44.9500, "lon": 37.6000}], "on_station_seconds": 10800},
+      "awacs": {"waypoints": [{"lat": 44.7500, "lon": 36.7000}, {"lat": 44.8500, "lon": 37.3000}], "on_station_seconds": 14400}
     },
     "red": {
       "tanker": {"waypoints": [{"lat": 45.2500, "lon": 38.6000}, {"lat": 45.2500, "lon": 39.8000}], "on_station_seconds": 10800},
@@ -84,6 +84,7 @@
       }},
     "cap_flight": {"label": "Combat air patrol", "variants": {"blue": "hornet_cap", "red": "mig29_cap"}},
     "cas_flight": {"label": "Close air support", "variants": {"blue": "a10c_cas", "red": "su25t_cas"}},
+    "strike_flight": {"label": "Ground strike", "variants": {"blue": "warthog_cas", "red": "fencer_cas"}},
     "sead_flight": {"label": "Air-defense suppression", "variants": {"blue": "hornet_sead", "red": "su25t_sead"}},
     "awacs_flight": {"label": "Airborne early warning", "variants": {"blue": "sentry_awacs", "red": "mainstay_awacs"}},
     "tanker_flight": {"label": "Airborne refueling", "variants": {"blue": "stratotanker_tanker", "red": "midas_tanker"}}
@@ -96,6 +97,7 @@
     "sead": {"label": "Suppress air defenses", "cost": 225, "target_ownership": "not_friendly", "requires_connection": true, "package": "sead_flight"},
     "awacs": {"label": "Deploy early warning", "cost": 300, "target_ownership": "friendly", "package": "awacs_flight"},
     "tanker": {"label": "Deploy tanker", "cost": 250, "target_ownership": "friendly", "package": "tanker_flight"},
-    "jtac": {"label": "JTAC support", "cost": 50, "target_ownership": "not_friendly", "requires_connection": true, "package": null}
+    "jtac": {"label": "JTAC support", "cost": 50, "target_ownership": "not_friendly", "requires_connection": true, "package": null},
+    "strike": {"label": "Air strike", "cost": 200, "target_ownership": "not_friendly", "requires_connection": true, "package": "strike_flight"}
   }
 }
