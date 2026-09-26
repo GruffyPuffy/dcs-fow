@@ -143,6 +143,13 @@ class CampaignEngine:
         for objective_id, objective_state in state.objectives.items():
             if objective_state.owner:
                 income[objective_state.owner] += self.scenario.objectives[objective_id].income
+        # Side multipliers create the campaign's tipping point: Red earns less
+        # per objective, so Blue overtakes as it captures territory.
+        factors = self.scenario.economy
+        for side in Side:
+            factor = (factors.red_income_factor if side == Side.RED
+                      else factors.blue_income_factor)
+            income[side] = int(income[side] * factor)
         for side, amount in income.items():
             state.resources[side] += amount
         state.events.append(CampaignEvent(

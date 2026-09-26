@@ -87,6 +87,25 @@ class DcsGateway:
         return self.client.request(
             "set_option", group_name=group_name, option_id=option_id, value=value)
 
+    def add_radio_command(self, coalition_id: int, name: str, path: list[str] | None,
+                          command_id: str) -> dict[str, Any]:
+        return self.client.request(
+            "add_radio_command", coalition_id=coalition_id, name=name,
+            path=path, command_id=command_id)
+
+    def smoke(self, lat: float, lon: float, color: int, duration: int = 300) -> dict[str, Any]:
+        return self.client.request(
+            "smoke", lat=lat, lon=lon, color=color, duration=duration)
+
+    def mark(self, lat: float, lon: float, text: str, coalition_id: int = -1) -> dict[str, Any]:
+        return self.client.request(
+            "mark", lat=lat, lon=lon, text=text, coalition_id=coalition_id)
+
+    def message(self, text: str, coalition_id: int = -1, seconds: int = 20) -> dict[str, Any]:
+        """Show a text message to one coalition (or all with -1)."""
+        return self.client.request(
+            "message", text=text, coalition_id=coalition_id, seconds=seconds)
+
     def public_snapshot(self) -> dict[str, Any] | None:
         with self._lock:
             return self._snapshot.as_dict() if self._snapshot else None

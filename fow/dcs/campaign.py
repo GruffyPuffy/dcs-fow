@@ -13,6 +13,7 @@ from .client import DcsGateway
 
 MISSIONS = Path(__file__).resolve().parents[2] / "missions"
 CATALOG = MISSIONS / "spawn_catalog.json"
+UNIT_CATALOG = MISSIONS / "unit_catalog.json"
 AIR_CATALOG = MISSIONS / "air_trial.json"
 AIR_TEMPLATES = MISSIONS / "air_templates.json"
 
@@ -22,6 +23,7 @@ class CampaignExecutor:
         self.scenario = scenario
         self.gateway = gateway
         self.catalog = json.loads(CATALOG.read_text())
+        self.unit_catalog = json.loads(UNIT_CATALOG.read_text())
         self.air_catalog = json.loads(AIR_CATALOG.read_text())
         self.air_templates = json.loads(AIR_TEMPLATES.read_text())
 
@@ -38,6 +40,8 @@ class CampaignExecutor:
         objective = self.scenario.objectives[plan.target]
         names = self.names_for(plan, sequence)
         name = names[0]
+        if plan.action == "jtac":
+            return self._execute_jtac(plan, sequence, objective)
         if objective.kind == "carrier" and plan.action not in ("cap", "awacs", "tanker"):
             return {"name": name, "names": names, "status": "failed",
                     "error": "Carrier objectives only host air actions"}
@@ -106,6 +110,41 @@ class CampaignExecutor:
             "status": "accepted" if accepted else "failed",
             "error": None if accepted else "DCS rejected one or more groups",
         }
+
+    def _execute_jtac(self, plan, sequence, objective) -> dict:
+        """Spawn a JTAC infantry observer near the objective, give it a FAC
+        task, drop smoke for visibility, and mark the objective on the F10 map."""
+        name = self.name_for(plan, sequence)
+        template = self.unit_catalog.get("blue", {}).get("unit_39038408fa35f2b8")
+        if template is None:
+            return {"name": name, "names": [name], "status": "failed",
+                    "error": "JTAC template unavailable"}
+        # Stage the JTAC just outside the objective so it observes, not fights.
+        lat, lon = objective.defense_positions[sequence % len(objective.defense_positions)]
+        lat, lon = dcs_structures.offset_position(lat, lon, 300, 0)
+        try:
+            lat, lon = self.gateway.ground_position(
+                lat, lon, [{"dx": 0, "dy": 0}])
+            spawn_data = dcs_structures.build_ground_spawn_data(
+                plan.side.value, template, name, lat, lon)
+            reply = self.gateway.spawn_group(spawn_data)
+            if reply.get("ok") is not True:
+                return {"name": name, "names": [name], "status": "failed",
+                        "error": reply.get("result", "DCS rejected JTAC spawn")}
+            # FAC task: the JTAC lases and calls targets for players.
+            self.gateway.set_task(name, {
+                "id": "FAC",
+                "params": {"targetTypes": ["Ground Units", "Airplanes"],
+                           "priority": 0},
+            })
+            # Orange smoke near the objective for visual reference.
+            self.gateway.smoke(objective.lat, objective.lon, 4, 300)
+            # F10 map mark for the requesting coalition (Blue).
+            self.gateway.mark(objective.lat, objective.lon,
+                              f"JTAC on station - {objective.label}", 2)
+        except (OSError, RuntimeError, ValueError) as error:
+            return {"name": name, "names": [name], "status": "failed", "error": str(error)}
+        return {"name": name, "names": [name], "status": "accepted", "error": None}
 
     def _execute_air(self, plan, sequence, template_id, objective, snapshot):
         side = plan.side.value

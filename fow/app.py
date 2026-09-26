@@ -44,6 +44,12 @@ class FoWService:
         self._next_income_at: float | None = None
         self._next_decision_at: float | None = None
         self._last_dcs_mission_id: str | None = None
+        # Player requests from the F10 radio menu, awaiting the general's
+        # approval. Each entry: {id, side, action, target, requested_at}.
+        self._player_requests: list[dict[str, Any]] = []
+        self._last_menu_event_id = 0
+        # Intel messages already sent to Blue (dedup by key).
+        self._sent_intel: set[str] = set()
         self._restore()
 
     def _new_generals(self) -> dict[Side, AlgorithmicGeneral]:
@@ -115,8 +121,21 @@ class FoWService:
             self._save_locked()
         self._execute_jobs(jobs)
         self._apply_slot_access()
+        self._register_radio_menu()
         with self._lock:
             return self._campaign.as_dict()
+
+    def _register_radio_menu(self) -> None:
+        """Add the FoW F10 menu for Blue: request JTAC support per objective."""
+        try:
+            for objective in self.scenario.objectives.values():
+                if objective.kind != "zone":
+                    continue
+                self.dcs.add_radio_command(
+                    2, f"Request JTAC - {objective.label}",
+                    ["FoW"], f"jtac:{objective.id}")
+        except (OSError, RuntimeError, ValueError):
+            pass  # DCS offline; retried on next campaign start
 
     def tick(self, now: float | None = None) -> None:
         now = self._clock() if now is None else now
@@ -140,7 +159,12 @@ class FoWService:
             while now >= self._next_decision_at:
                 elapsed = AlgorithmicGeneral.decision_interval_seconds
                 for side in Side:
-                    self._generals[side].accrue(elapsed)
+                    general = self._generals[side]
+                    general.accrue(elapsed)
+                    # Hand pending player requests to the general for approval.
+                    general.pending_requests = [
+                        request for request in self._player_requests
+                        if request["side"] == side.value and request["status"] == "pending"]
                     choice = self._generals[side].choose_action(self._campaign)
                     if choice:
                         plan = self.engine.apply_action(
@@ -148,6 +172,13 @@ class FoWService:
                         sequence = len(self._campaign.events)
                         jobs.append((plan, sequence))
                         self._deployments.append(self._deployment(plan, sequence))
+                        # Mark matching player requests as approved.
+                        for request in self._player_requests:
+                            if (request["side"] == side.value
+                                    and request["status"] == "pending"
+                                    and request["action"] == choice.action
+                                    and request["target"] == choice.target):
+                                request["status"] = "approved"
                 self._next_decision_at += AlgorithmicGeneral.decision_interval_seconds
                 changed = True
             if changed:
@@ -163,6 +194,23 @@ class FoWService:
         with self._lock:
             if self._campaign is None:
                 return
+            # Consume F10 menu selections into the player request queue.
+            for event in snapshot.get("menu_events", []):
+                event_id = int(event.get("id", 0))
+                if event_id <= self._last_menu_event_id:
+                    continue
+                self._last_menu_event_id = event_id
+                command_id = str(event.get("command_id", ""))
+                if command_id.startswith("jtac:"):
+                    objective_id = command_id.split(":", 1)[1]
+                    if objective_id in self.scenario.objectives:
+                        self._player_requests.append({
+                            "id": event_id,
+                            "side": "blue",
+                            "action": "jtac",
+                            "target": objective_id,
+                            "status": "pending",
+                        })
             # Report live support flights (AWACS/tanker) to each general so it
             # can replace losses and escort the AWACS.
             for side in Side:
@@ -194,6 +242,44 @@ class FoWService:
             if flips:
                 self._apply_slot_access()
                 self._save_locked()
+            self._send_intel(flips, presence)
+
+    def _send_intel(self, flips: list[dict], presence: dict) -> None:
+        """Balanced intel to Blue players: what Blue's own forces do, plus
+        enemy activity only where Blue could plausibly see it (its own
+        objectives under attack, lost ground). Never full enemy truth."""
+        def tell(key: str, text: str) -> None:
+            if key in self._sent_intel:
+                return
+            self._sent_intel.add(key)
+            try:
+                self.dcs.message(text, 2, 20)
+            except (OSError, RuntimeError, ValueError):
+                pass
+        for flip in flips:
+            objective = self.scenario.objectives[flip["objective"]]
+            if flip["to"] == "blue":
+                tell(f"capture:{flip['objective']}",
+                     f"[FoW] {objective.label} captured. Slots opened.")
+            else:
+                tell(f"lost:{flip['objective']}",
+                     f"[FoW] We lost {objective.label}! Enemy counter-attack likely.")
+        # Blue's own objectives with enemy ground = visible contact.
+        for objective_id in self._generals[Side.BLUE].threatened:
+            objective = self.scenario.objectives[objective_id]
+            tell(f"threat:{objective_id}",
+                 f"[FoW] Enemy ground forces at {objective.label}!")
+        # Red assaults are only reported when Blue has eyes on the target
+        # (its own adjacent objective is threatened) - not every Red move.
+        for deployment in self._deployments:
+            if (deployment["side"] != "red" or deployment["action"] != "assault"
+                    or deployment["status"] != "active"):
+                continue
+            target = deployment["target"]
+            if target in self._generals[Side.BLUE].threatened:
+                objective = self.scenario.objectives[target]
+                tell(f"assault:{deployment['sequence']}",
+                     f"[FoW] Intel: Red assault on {objective.label} in progress!")
 
     def _deployment(self, plan, sequence: int) -> dict[str, Any]:
         return {
@@ -361,6 +447,7 @@ class FoWService:
                 },
             },
             "deployments": list(self._deployments),
+            "player_requests": list(self._player_requests),
             "persistence": {
                 "enabled": self._checkpoint is not None,
                 "status": "runtime checkpoint" if self._checkpoint else "disabled",

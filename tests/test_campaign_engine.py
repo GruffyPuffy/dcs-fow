@@ -102,9 +102,10 @@ class CampaignEngineTest(unittest.TestCase):
     def test_owned_objectives_pay_symmetric_income(self):
         income = self.engine.collect_income(self.state)
         endowment = self.engine.scenario.economy.red_opening_endowment
-        self.assertEqual(income, {Side.RED: 85, Side.BLUE: 20})
+        # Red's income factor (0.9) creates the tipping point: 85 * 0.9 = 76.
+        self.assertEqual(income, {Side.RED: 76, Side.BLUE: 20})
         self.assertEqual(self.state.resources,
-                         {Side.RED: 1500 + endowment + 85, Side.BLUE: 1520})
+                         {Side.RED: 1500 + endowment + 76, Side.BLUE: 1520})
         self.assertEqual(self.state.events[-1].kind, "income_collected")
 
 

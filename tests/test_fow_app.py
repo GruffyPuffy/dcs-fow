@@ -18,6 +18,18 @@ class StubGateway:
     def set_slot_access(self, slots, enabled):
         return {"ok": True}
 
+    def add_radio_command(self, coalition_id, name, path, command_id):
+        return {"ok": True}
+
+    def smoke(self, lat, lon, color, duration=300):
+        return {"ok": True}
+
+    def mark(self, lat, lon, text, coalition_id=-1):
+        return {"ok": True}
+
+    def message(self, text, coalition_id=-1, seconds=20):
+        return {"ok": True}
+
 
 class RecordingGateway:
     def __init__(self):
@@ -31,6 +43,9 @@ class RecordingGateway:
 
     def set_slot_access(self, slots, enabled):
         self.slot_access_calls.append((list(slots), enabled))
+        return {"ok": True}
+
+    def add_radio_command(self, coalition_id, name, path, command_id):
         return {"ok": True}
 
     def public_snapshot(self):
@@ -55,6 +70,15 @@ class RecordingGateway:
     def ground_position(self, lat, lon, offsets, search_radius=2000,
                         airbase_clearance=1200):
         return lat, lon
+
+    def set_task(self, group_name, task_data):
+        return {"ok": True}
+
+    def smoke(self, lat, lon, color, duration=300):
+        return {"ok": True}
+
+    def mark(self, lat, lon, text, coalition_id=-1):
+        return {"ok": True}
 
 
 class FoWServiceTest(unittest.TestCase):
@@ -94,7 +118,10 @@ class FoWServiceTest(unittest.TestCase):
         self.service.tick()
         overview = self.service.overview()
         resources = overview["campaign"]["resources"]
-        self.assertGreaterEqual(resources["blue"], 500)
+        # Blue keeps a half reserve (underdog pushing), Red the full one.
+        # The tick catches up several decision rounds, so Blue may spend down
+        # to its 250 floor minus one cheap action.
+        self.assertGreaterEqual(resources["blue"], 200)
         self.assertGreaterEqual(resources["red"], 500)
         self.assertIn("income_collected", [
             event["kind"] for event in overview["campaign"]["events"]])

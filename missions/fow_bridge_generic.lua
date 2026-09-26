@@ -38,6 +38,85 @@ end
 
 -- Retain a bounded event tail so polling does not consume or duplicate events.
 local kill_reports, kill_sequence, killed_targets = {}, 0, {}
+-- F10 radio menu selections, queued for the Python service via status polls.
+local menu_events, menu_sequence = {}, 0
+local menu_paths = {}
+
+local function enqueue_menu_event(command_id, args)
+    menu_sequence = menu_sequence + 1
+    menu_events[#menu_events + 1] = string.format(
+        '{"id":%d,"command_id":%s,"args":%s}',
+        menu_sequence, quoted(tostring(command_id)), quoted(tostring(args or '')))
+    if #menu_events > 100 then table.remove(menu_events, 1) end
+end
+
+-- Register a coalition radio menu command. The handler only queues an event;
+-- all policy stays on the Python side.
+function FoWBridge.addRadioCommand(id, coalition_id, name, path, command_id)
+    local ok, err = pcall(function()
+        missionCommands.addCommandForCoalition(coalition_id, name, path or nil, function(args)
+            enqueue_menu_event(command_id, args)
+        end, command_id)
+    end)
+    if not ok then return reply(id, false, 'MENU_FAILED:' .. tostring(err)) end
+    menu_paths[command_id] = {coalition_id = coalition_id, name = name, path = path}
+    return reply(id, true, 'MENU_ADDED')
+end
+
+function FoWBridge.removeRadioCommand(id, command_id)
+    local entry = menu_paths[command_id]
+    if not entry then return reply(id, false, 'MENU_UNKNOWN') end
+    pcall(function()
+        missionCommands.removeCommandForCoalition(entry.coalition_id, entry.name, entry.path or nil)
+    end)
+    menu_paths[command_id] = nil
+    return reply(id, true, 'MENU_REMOVED')
+end
+
+-- Colored smoke at a lat/lon for a bounded duration (DCS max 300 s per call;
+-- the service re-issues while the JTAC is on station).
+function FoWBridge.smoke(id, lat, lon, color, duration)
+    if type(lat) ~= 'number' or type(lon) ~= 'number' then
+        return reply(id, false, 'INVALID_SMOKE_POSITION')
+    end
+    local point = coord.LLtoLO(lat, lon)
+    local seconds = math.min(math.max(tonumber(duration) or 300, 1), 300)
+    local ok, err = pcall(trigger.action.smoke, point, tonumber(color) or trigger.colorOrange,
+        nil, 0, seconds)
+    if not ok then return reply(id, false, 'SMOKE_FAILED:' .. tostring(err)) end
+    return reply(id, true, 'SMOKE_SET')
+end
+
+-- F10 map mark visible to one coalition (or all when coalition_id is -1).
+function FoWBridge.mark(id, lat, lon, text, coalition_id)
+    if type(lat) ~= 'number' or type(lon) ~= 'number' then
+        return reply(id, false, 'INVALID_MARK_POSITION')
+    end
+    local point = coord.LLtoLO(lat, lon)
+    local ok, err
+    if coalition_id == -1 then
+        ok, err = pcall(trigger.action.markToAll, 0, point, tostring(text or ''))
+    else
+        ok, err = pcall(trigger.action.markToCoalition, 0, point,
+            tostring(text or ''), tonumber(coalition_id))
+    end
+    if not ok then return reply(id, false, 'MARK_FAILED:' .. tostring(err)) end
+    return reply(id, true, 'MARK_SET')
+end
+
+-- Text message to one coalition (or all when coalition_id is -1).
+function FoWBridge.message(id, text, coalition_id, seconds)
+    local duration = math.min(math.max(tonumber(seconds) or 20, 1), 120)
+    local ok, err
+    if coalition_id == -1 then
+        ok, err = pcall(trigger.action.outText, tostring(text or ''), duration)
+    else
+        ok, err = pcall(trigger.action.outTextForCoalition, tonumber(coalition_id),
+            tostring(text or ''), duration)
+    end
+    if not ok then return reply(id, false, 'MESSAGE_FAILED:' .. tostring(err)) end
+    return reply(id, true, 'MESSAGE_SENT')
+end
 local function safe_call(object, method)
     if not object then return nil end
     local ok, value = pcall(function() return object[method](object) end)
@@ -171,6 +250,7 @@ function FoWBridge.status(id)
     return '{"v":1,"id":' .. quoted(id) .. ',"ok":true,"mission_id":'
         .. quoted(FoWBridge.mission_id) .. ',"time":' .. number(timer.getTime())
         .. ',"kill_reports":[' .. table.concat(kill_reports, ',') .. ']'
+        .. ',"menu_events":[' .. table.concat(menu_events, ',') .. ']'
         .. ',"awacs_reports":[' .. table.concat(reports, ',') .. ']'
         .. ',"awacs_sensor_errors":' .. sensor_errors
         .. ',"groups":[' .. table.concat(groups, ',') .. ']'
@@ -370,6 +450,17 @@ function FoWBridge.handle(request)
         return FoWBridge.setCommand(id, request.group_name, request.command_data)
     elseif op == 'set_option' then
         return FoWBridge.setOption(id, request.group_name, request.option_id, request.value)
+    elseif op == 'add_radio_command' then
+        return FoWBridge.addRadioCommand(id, request.coalition_id, request.name,
+            request.path, request.command_id)
+    elseif op == 'remove_radio_command' then
+        return FoWBridge.removeRadioCommand(id, request.command_id)
+    elseif op == 'smoke' then
+        return FoWBridge.smoke(id, request.lat, request.lon, request.color, request.duration)
+    elseif op == 'mark' then
+        return FoWBridge.mark(id, request.lat, request.lon, request.text, request.coalition_id)
+    elseif op == 'message' then
+        return FoWBridge.message(id, request.text, request.coalition_id, request.seconds)
     else
         return reply(id, false, 'UNKNOWN_OPERATION')
     end

@@ -55,6 +55,10 @@ class Economy:
     general_reserve: int
     general_seed: int
     red_opening_endowment: int = 0
+    # Per-side income multipliers. Red below 1.0 creates a tipping point:
+    # Blue starts far behind but overtakes once it captures objectives.
+    red_income_factor: float = 1.0
+    blue_income_factor: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -203,6 +207,8 @@ def load_scenario(path: Path) -> Scenario:
             general_reserve=int(economy_data["general_reserve"]),
             general_seed=int(economy_data["general_seed"]),
             red_opening_endowment=int(economy_data.get("red_opening_endowment", 0)),
+            red_income_factor=float(economy_data.get("red_income_factor", 1.0)),
+            blue_income_factor=float(economy_data.get("blue_income_factor", 1.0)),
         ),
         slot_unlocks=dict(data.get("mission", {}).get("slot_unlocks", {})),
     )

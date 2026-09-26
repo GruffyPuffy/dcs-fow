@@ -7,7 +7,9 @@
     "income_interval_seconds": 300,
     "general_reserve": 500,
     "general_seed": 149,
-    "red_opening_endowment": 900
+    "red_opening_endowment": 900,
+    "red_income_factor": 0.9,
+    "blue_income_factor": 1.0
   },
   "air_stations": {
     "blue": {
@@ -93,6 +95,7 @@
     "cas": {"label": "Close air support", "cost": 200, "target_ownership": "not_friendly", "requires_connection": true, "package": "cas_flight"},
     "sead": {"label": "Suppress air defenses", "cost": 225, "target_ownership": "not_friendly", "requires_connection": true, "package": "sead_flight"},
     "awacs": {"label": "Deploy early warning", "cost": 300, "target_ownership": "friendly", "package": "awacs_flight"},
-    "tanker": {"label": "Deploy tanker", "cost": 250, "target_ownership": "friendly", "package": "tanker_flight"}
+    "tanker": {"label": "Deploy tanker", "cost": 250, "target_ownership": "friendly", "package": "tanker_flight"},
+    "jtac": {"label": "JTAC support", "cost": 50, "target_ownership": "not_friendly", "requires_connection": true, "package": null}
   }
 }

@@ -14,6 +14,7 @@ class DcsSnapshot:
     kill_reports: tuple[dict[str, Any], ...]
     awacs_reports: tuple[dict[str, Any], ...]
     awacs_sensor_errors: int
+    menu_events: tuple[dict[str, Any], ...] = ()
 
     @classmethod
     def from_reply(cls, reply: dict[str, Any]) -> "DcsSnapshot":
@@ -34,6 +35,7 @@ class DcsSnapshot:
             kill_reports=tuple(reply.get("kill_reports", [])),
             awacs_reports=tuple(reply.get("awacs_reports", [])),
             awacs_sensor_errors=int(reply.get("awacs_sensor_errors", 0)),
+            menu_events=tuple(reply.get("menu_events", [])),
         )
 
     def summary(self) -> dict[str, Any]:
@@ -55,4 +57,5 @@ class DcsSnapshot:
             "kill_reports": list(self.kill_reports),
             "awacs_reports": list(self.awacs_reports),
             "awacs_sensor_errors": self.awacs_sensor_errors,
+            "menu_events": list(self.menu_events),
         }

@@ -19,7 +19,10 @@ class AlgorithmicGeneral:
                  opening_endowment: int = 0):
         self.side = side
         self.engine = engine
-        self.reserve = reserve
+        # Blue is the underdog that must push to have a chance without players;
+        # it keeps a smaller reserve than the scenario default so it can afford
+        # assaults while Red hoards its bigger starting economy.
+        self.reserve = reserve // 2 if side == Side.BLUE else reserve
         # Pre-existing fortification budget: spent during the setup phase on top
         # of starting resources, mirroring an enemy that has held the area for
         # a long time. It does not carry over to the running campaign.
@@ -32,6 +35,9 @@ class AlgorithmicGeneral:
         # over the routine assault/reinforce roll.
         self.threatened: set[str] = set()
         self.lost: set[str] = set()
+        # Player requests awaiting approval (e.g. JTAC support). The general
+        # approves them on the normal cadence if the budget allows.
+        self.pending_requests: list[dict] = []
         # Human-readable decision log for tuning: one entry per choose_action.
         self.decision_log: list[dict] = []
         self._bucket = self.bucket_capacity
@@ -58,10 +64,14 @@ class AlgorithmicGeneral:
     def _affordable(self, state: CampaignState, plans: list[ActionPlan],
                     urgent: bool) -> list[ActionPlan]:
         """Filter plans by resources and the spending bucket. Urgent reactions
-        (counter-attacks, support replacement) may overdraw the bucket."""
+        (counter-attacks, support replacement) may overdraw the bucket. The
+        reserve is a soft floor: routine spending must keep half the reserve,
+        but cheap actions (<= 150) are always allowed so a side never idles
+        just because its balance dipped."""
         result = []
         for plan in plans:
-            if state.resources[self.side] - plan.cost < self.reserve:
+            floor = self.reserve if plan.cost > 150 else self.reserve // 2
+            if state.resources[self.side] - plan.cost < floor:
                 continue
             if urgent or self._bucket >= plan.cost:
                 result.append(plan)
@@ -176,7 +186,24 @@ class AlgorithmicGeneral:
             replacements = [plan for plan in plans if plan.action == action]
             if replacements:
                 return self._random.choice(replacements)
+        # Player requests (JTAC etc.) are approved when affordable: they are
+        # cheap support that helps the coalition, so no random roll.
+        while self.pending_requests:
+            request = self.pending_requests[0]
+            affordable = [plan for plan in plans
+                          if plan.action == request.get("action")
+                          and plan.target == request.get("target")]
+            if affordable:
+                self.pending_requests.pop(0)
+                return affordable[0]
+            # Cannot afford it right now: keep it queued and stop this round.
+            break
         if "awacs" in self.live_support and "cap" not in self.live_support:
+            escorts = [plan for plan in plans if plan.action == "cap"]
+            if escorts:
+                return self._random.choice(escorts)
+        # Escort rule: a live tanker also deserves a CAP when none is up.
+        if "tanker" in self.live_support and "cap" not in self.live_support:
             escorts = [plan for plan in plans if plan.action == "cap"]
             if escorts:
                 return self._random.choice(escorts)

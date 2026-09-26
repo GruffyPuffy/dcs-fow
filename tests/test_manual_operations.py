@@ -59,6 +59,18 @@ class RecordingGateway:
         self.slot_access = (list(slots), enabled)
         return {"ok": True}
 
+    def add_radio_command(self, coalition_id, name, path, command_id):
+        return {"ok": True}
+
+    def smoke(self, lat, lon, color, duration=300):
+        return {"ok": True}
+
+    def mark(self, lat, lon, text, coalition_id=-1):
+        return {"ok": True}
+
+    def message(self, text, coalition_id=-1, seconds=20):
+        return {"ok": True}
+
 
 class ManualOperationsTest(unittest.TestCase):
     def setUp(self):
