@@ -8,7 +8,7 @@ from typing import Literal
 from .models import Side
 
 
-TargetOwnership = Literal["friendly", "not_friendly"]
+TargetOwnership = Literal["friendly", "not_friendly", "enemy"]
 
 
 ObjectiveKind = Literal["zone", "carrier"]
@@ -55,10 +55,18 @@ class Economy:
     general_reserve: int
     general_seed: int
     red_opening_endowment: int = 0
+    # Opening war chest for Blue's initial push: funds assaults on the
+    # neutral objectives adjacent to Blue's start (alpha/charlie) so the
+    # campaign starts hot instead of Blue hoarding while Red consolidates.
+    blue_opening_endowment: int = 0
     # Per-side income multipliers. Red below 1.0 creates a tipping point:
     # Blue starts far behind but overtakes once it captures objectives.
     red_income_factor: float = 1.0
     blue_income_factor: float = 1.0
+    # Flat stipend paid every income tick regardless of territory. An attacker
+    # chose to start a war: it must be able to keep spending even while it
+    # holds few objectives, or the campaign stalls after the opening.
+    base_income: int = 0
 
 
 @dataclass(frozen=True)
@@ -207,8 +215,10 @@ def load_scenario(path: Path) -> Scenario:
             general_reserve=int(economy_data["general_reserve"]),
             general_seed=int(economy_data["general_seed"]),
             red_opening_endowment=int(economy_data.get("red_opening_endowment", 0)),
+            blue_opening_endowment=int(economy_data.get("blue_opening_endowment", 0)),
             red_income_factor=float(economy_data.get("red_income_factor", 1.0)),
             blue_income_factor=float(economy_data.get("blue_income_factor", 1.0)),
+            base_income=int(economy_data.get("base_income", 0)),
         ),
         slot_unlocks=dict(data.get("mission", {}).get("slot_unlocks", {})),
     )
@@ -253,7 +263,7 @@ def _validate(scenario: Scenario) -> None:
     for action in scenario.actions.values():
         if action.cost < 0:
             raise ValueError(f"Action {action.id} has a negative cost")
-        if action.target_ownership not in ("friendly", "not_friendly"):
+        if action.target_ownership not in ("friendly", "not_friendly", "enemy"):
             raise ValueError(f"Action {action.id} has invalid target ownership")
         if action.package and action.package not in scenario.assets:
             raise ValueError(f"Action {action.id} uses unknown package {action.package}")

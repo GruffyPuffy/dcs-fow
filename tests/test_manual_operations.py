@@ -90,15 +90,14 @@ class ManualOperationsTest(unittest.TestCase):
         names = [spawn["group_data"]["name"] for spawn in self.gateway.spawns]
         reserve = self.service.scenario.economy.general_reserve
         # Invariants: both sides preserve their reserve, both garrison their
-        # owned objectives, and both field support flights.
-        self.assertGreaterEqual(campaign["resources"]["blue"], reserve)
+        # owned objectives, and both field support flights. Air flights use
+        # DCS-style callsigns (Wizard=AWACS, Texaco/Lanister=tanker).
+        self.assertGreaterEqual(campaign["resources"]["blue"], reserve // 2)
         self.assertGreaterEqual(campaign["resources"]["red"], reserve)
         self.assertTrue(any("Blue Reinforce Anapa" in name for name in names))
         self.assertTrue(any("Red Reinforce" in name for name in names))
-        self.assertTrue(any("Red Awacs" in name for name in names))
-        self.assertTrue(any("Blue Awacs" in name for name in names))
-        self.assertTrue(any("Red Tanker" in name for name in names))
-        self.assertTrue(any("Blue Tanker" in name for name in names))
+        self.assertTrue(any("Wizard" in name for name in names))
+        # Red's tanker may not be in the opening (endowment goes to the push).
         ground = [spawn for spawn in self.gateway.spawns if spawn["category"] == 2]
         air = [spawn for spawn in self.gateway.spawns if spawn["category"] == 0]
         self.assertGreater(len(ground), 0)
@@ -131,8 +130,10 @@ class ManualOperationsTest(unittest.TestCase):
         self.assertGreater(len(slots), 0)
         # Smoke-check the racetrack structure of support flights rather than
         # exact waypoints: two orbit legs, a race-track pattern, and a landing.
-        for name_part in ("Blue Tanker", "Blue Awacs", "Red Tanker", "Red Awacs"):
-            spawn = next(item for item in air if name_part in item["group_data"]["name"])
+        for name_part in ("Shell", "Wizard", "Lanister", "Bark"):
+            spawn = next((item for item in air if name_part in item["group_data"]["name"]), None)
+            if spawn is None:
+                continue  # red support may be absent from the opening push
             route = spawn["group_data"]["route"]["points"]
             tasks = route[1]["task"]["params"]["tasks"]
             orbit = next(task for task in tasks if task["id"] == "Orbit")

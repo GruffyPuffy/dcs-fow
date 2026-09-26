@@ -16,7 +16,7 @@ class PlayerSlotCatalogTest(unittest.TestCase):
 
     def test_scenario_references_the_roster(self):
         scenario = json.loads((ROOT / "fow" / "scenarios" / "caucasus_pve.json").read_text())
-        self.assertEqual(scenario["mission"]["slot_roster"], "foothold_pve")
+        self.assertEqual(scenario["mission"]["slot_roster"], "caucasus_slots")
         self.assertEqual(scenario["mission"]["player_side"], "blue")
         objective_ids = set(scenario["objectives"])
         self.assertTrue(all(

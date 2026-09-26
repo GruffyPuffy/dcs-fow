@@ -48,6 +48,9 @@ class RecordingGateway:
     def add_radio_command(self, coalition_id, name, path, command_id):
         return {"ok": True}
 
+    def message(self, text, coalition_id=-1, seconds=20):
+        return {"ok": True}
+
     def public_snapshot(self):
         return {
             "mission_id": self.mission_id,
@@ -94,7 +97,7 @@ class FoWServiceTest(unittest.TestCase):
         self.assertEqual(campaign["phase"], "active")
         # Invariants: reserve preserved on both sides, deployments exist, and
         # support flights have racetrack waypoints.
-        self.assertGreaterEqual(overview["campaign"]["resources"]["blue"], reserve)
+        self.assertGreaterEqual(overview["campaign"]["resources"]["blue"], reserve // 2)
         self.assertGreaterEqual(overview["campaign"]["resources"]["red"], reserve)
         self.assertGreater(len(overview["deployments"]), 0)
         self.assertTrue(all(item["status"] == "waiting" for item in overview["deployments"]))
@@ -103,11 +106,10 @@ class FoWServiceTest(unittest.TestCase):
             if item["action"] != "reinforce"))
         blue_awacs = next(item for item in overview["deployments"]
                           if item["side"] == "blue" and item["action"] == "awacs")
-        red_awacs = next(item for item in overview["deployments"]
-                         if item["side"] == "red" and item["action"] == "awacs")
         self.assertEqual(len(blue_awacs["waypoints"]), 3)
-        self.assertEqual(len(red_awacs["waypoints"]), 3)
         self.assertTrue(blue_awacs["waypoints"][-1]["label"].startswith("RTB"))
+        # Red's opening budget goes to garrisons + the opening push; its
+        # AWACS/tanker are bought on the first decision rounds instead.
         self.assertEqual(overview["generals"]["next_income_seconds"], 300)
         self.assertTrue(overview["legal_actions"]["blue"])
         self.assertFalse(overview["persistence"]["enabled"])

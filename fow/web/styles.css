@@ -63,6 +63,9 @@ h1 { margin:0; max-width:760px; font:400 clamp(42px,7vw,92px)/.95 Georgia,serif;
 .decision-log { width:100%; border-collapse:collapse; font:11px/1.5 "IBM Plex Mono",monospace; margin-top:16px; }
 .decision-log th { text-align:left; color:var(--muted); font-weight:400; text-transform:uppercase; padding:6px 8px 6px 0; border-bottom:1px solid var(--line); }
 .decision-log td { padding:6px 8px 6px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+.unit-details { border-collapse:collapse; margin-top:6px; font:11px/1.5 "IBM Plex Mono",monospace; }
+.unit-details th { text-align:left; color:#666; font-weight:400; padding:2px 10px 2px 0; }
+.unit-details td { padding:2px 0; }
 .side-switch { display:inline-flex; border:1px solid var(--line); margin-bottom:24px; }
 .side-switch button { border:0; background:transparent; padding:9px 20px; cursor:pointer; }
 .side-switch button.active { background:var(--ink); color:var(--on-light); }

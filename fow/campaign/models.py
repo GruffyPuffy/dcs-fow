@@ -20,6 +20,10 @@ class CampaignPhase(str, Enum):
 class ObjectiveState:
     owner: Side | None
     defense_level: int = 0
+    # Epoch timestamp when an attacker first held exclusive presence. Capture
+    # requires holding through a contest window - a walk-in does not take a
+    # base; the defender gets time to reinforce and fight for it.
+    contested_since: float | None = None
 
 
 @dataclass(frozen=True)
@@ -56,8 +60,7 @@ class CampaignState:
             objectives={
                 objective_id: ObjectiveState(
                     owner=Side(value["owner"]) if value.get("owner") else None,
-                    defense_level=int(value.get("defense_level", 0)),
-                )
+                    defense_level=int(value.get("defense_level", 0)),                    contested_since=value.get("contested_since"),                )
                 for objective_id, value in data["objectives"].items()
             },
             events=[
@@ -80,6 +83,7 @@ class CampaignState:
                 objective_id: {
                     "owner": objective.owner.value if objective.owner else None,
                     "defense_level": objective.defense_level,
+                    "contested_since": objective.contested_since,
                 }
                 for objective_id, objective in self.objectives.items()
             },

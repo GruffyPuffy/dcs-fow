@@ -27,9 +27,32 @@ class CampaignExecutor:
         self.air_catalog = json.loads(AIR_CATALOG.read_text())
         self.air_templates = json.loads(AIR_TEMPLATES.read_text())
 
+    # DCS-style flight callsigns per side and action, cycled by sequence.
+    # Players see these on the map and in comms instead of internal names.
+    FLIGHT_NAMES = {
+        "blue": {"cap": ["Enfield", "Dodge", "Chevy", "Ford"],
+                 "cas": ["Hawg", "Hawg", "Hawg", "Hawg"],
+                 "sead": ["Weasel", "Weasel", "Weasel", "Weasel"],
+                 "strike": ["Anvil", "Hammer", "Anvil", "Hammer"],
+                 "awacs": ["Wizard", "Wizard", "Wizard", "Wizard"],
+                 "tanker": ["Texaco", "Shell", "Texaco", "Shell"]},
+        "red": {"cap": ["Boris", "Vlad", "Yuri", "Dmitri"],
+                "cas": ["Grozny", "Grozny", "Grozny", "Grozny"],
+                "sead": ["Zver", "Zver", "Zver", "Zver"],
+                "strike": ["Orel", "Sokol", "Orel", "Sokol"],
+                "awacs": ["Bark", "Bark", "Bark", "Bark"],
+                "tanker": ["Lanister", "Lanister", "Lanister", "Lanister"]},
+    }
+
     def name_for(self, plan: ActionPlan, sequence: int) -> str:
         objective = self.scenario.objectives[plan.target]
-        return f"FoW {plan.side.value.title()} {plan.action.title()} {objective.label} {sequence}"
+        if plan.action in ("cap", "cas", "sead", "strike", "awacs", "tanker"):
+            names = self.FLIGHT_NAMES[plan.side.value][plan.action]
+            callsign = names[sequence % len(names)]
+            number = sequence // len(names) + 1
+            return f"{callsign} {number}-{1}"
+        # Ground groups keep descriptive names (they are not flights).
+        return f"{plan.side.value.title()} {plan.action.title()} {objective.label} {sequence}"
 
     def names_for(self, plan: ActionPlan, sequence: int) -> list[str]:
         root = self.name_for(plan, sequence)
@@ -98,7 +121,11 @@ class CampaignExecutor:
                     group_lat, group_lon = spawn_lat, spawn_lon
                 group_lat, group_lon = self.gateway.ground_position(
                     group_lat, group_lon,
-                    [{"dx": unit.get("dx", 0), "dy": unit.get("dy", 0)} for unit in units])
+                    [{"dx": unit.get("dx", 0), "dy": unit.get("dy", 0)} for unit in units],
+                    # Garrisons may sit next to their own airbase (Anapa's
+                    # defense line is 236 m from the runway) - only keep them
+                    # off the taxiways themselves.
+                    airbase_clearance=300 if plan.action == "reinforce" else 1200)
                 spawn_data = dcs_structures.build_ground_spawn_data(
                     side, group_template, group_name, group_lat, group_lon, destination)
                 replies.append(self.gateway.spawn_group(spawn_data))
@@ -155,6 +182,16 @@ class CampaignExecutor:
             return {"name": name, "names": [name], "status": "failed", "error": f"Missing air template {template_id}"}
         station = self.scenario.air_stations.get(plan.side, {}).get(plan.action)
         mission_lat, mission_lon = station.waypoints[0] if station else (objective.lat, objective.lon)
+        # Combat flights (cap/cas/sead/strike) launch from the nearest friendly
+        # airbase: they taxi, take off, and fly to station - visible, attackable
+        # on the ground, and diverse. Support flights (awacs/tanker) keep the
+        # simple air start far from the front.
+        launch_base = None
+        if plan.action in ("cap", "cas", "sead", "strike"):
+            launch_base = self._nearest_friendly_airbase(plan.side, mission_lat, mission_lon, snapshot)
+        if launch_base is not None:
+            return self._execute_base_start(
+                plan, sequence, preset, template, objective, station, launch_base)
         spawn_lat, spawn_lon = dcs_structures.air_start_position(mission_lat, mission_lon)
         spawn_data = dcs_structures.build_air_spawn_data(
             side, preset, template, spawn_lat, spawn_lon,
@@ -162,6 +199,45 @@ class CampaignExecutor:
             racetrack_end=station.waypoints[1] if station else None,
             on_station_seconds=station.on_station_seconds if station else None,
             rtb=(preset["default_rtb_base"], objective.lat, objective.lon) if station else None)
+        try:
+            reply = self.gateway.spawn_group(spawn_data)
+        except (OSError, RuntimeError, ValueError) as error:
+            return {"name": name, "names": [name], "status": "failed", "error": str(error)}
+        return {"name": name, "names": [name],
+                "status": "accepted" if reply.get("ok") else "failed",
+                "error": None if reply.get("ok") else reply.get("result", "DCS rejected command")}
+
+    def _nearest_friendly_airbase(self, plan_side, lat: float, lon: float,
+                                  snapshot: dict) -> dict | None:
+        """Friendly airbase nearest to a point, from the live DCS snapshot."""
+        from ..campaign.models import Side
+        coalition = 2 if plan_side == Side.BLUE else 1
+        best = None
+        best_distance = None
+        for airbase in snapshot.get("airbases", []):
+            if airbase.get("coalition") != coalition:
+                continue
+            distance = dcs_structures.initial_bearing(
+                lat, lon, airbase["lat"], airbase["lon"])  # placeholder, replaced below
+            # Use great-circle distance instead of bearing.
+            distance = ((airbase["lat"] - lat) * 111_320) ** 2 + \
+                       ((airbase["lon"] - lon) * 111_320 * math.cos(math.radians(lat))) ** 2
+            if best_distance is None or distance < best_distance:
+                best_distance = distance
+                best = airbase
+        return best
+
+    def _execute_base_start(self, plan, sequence, preset, template, objective,
+                            station, airbase) -> dict:
+        """Spawn a combat flight cold on the runway of a friendly airbase with
+        a route: takeoff -> station racetrack -> RTB back to the same base."""
+        side = plan.side.value
+        name = self.name_for(plan, sequence)
+        base_lat, base_lon = airbase["lat"], airbase["lon"]
+        spawn_data = dcs_structures.build_base_start_data(
+            side, preset, template, name, base_lat, base_lon,
+            station.waypoints[0], station.waypoints[1],
+            station.on_station_seconds, airbase["name"])
         try:
             reply = self.gateway.spawn_group(spawn_data)
         except (OSError, RuntimeError, ValueError) as error:

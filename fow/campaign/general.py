@@ -17,6 +17,10 @@ class AlgorithmicGeneral:
     # Max live ground groups per side. Protects the DCS server from runaway
     # spawning; the general stops buying ground forces at the cap.
     max_ground_groups = 40
+    # Max concurrent assault packages on a single objective. Stacking three
+    # assaults on one zone is a steamroll, not an operation - and it hammers
+    # the DCS server with simultaneous large ground groups.
+    max_assaults_per_objective = 1
 
     def __init__(self, side: Side, engine: CampaignEngine, seed: int, reserve: int,
                  opening_endowment: int = 0):
@@ -38,11 +42,18 @@ class AlgorithmicGeneral:
         # over the routine assault/reinforce roll.
         self.threatened: set[str] = set()
         self.lost: set[str] = set()
+        # Enemy assaults in progress (objective ids), fed by the service from
+        # active enemy assault deployments. Drives counter-doctrine: strike
+        # the staging force, CAP over the fight, counter-assault the source.
+        self.enemy_assaults: set[str] = set()
         # Player requests awaiting approval (e.g. JTAC support). The general
         # approves them on the normal cadence if the budget allows.
         self.pending_requests: list[dict] = []
         # Live ground group count, fed by the service from the DCS snapshot.
         self.live_ground_groups = 0
+        # Objectives already under one of our live assaults, fed by the
+        # service. Limits stacking multiple assault packages on one target.
+        self.live_assault_targets: set[str] = set()
         # Set when the next CAP purchase is a free AWACS escort (doctrine).
         self.free_escort = False
         # Human-readable decision log for tuning: one entry per choose_action.
@@ -92,7 +103,9 @@ class AlgorithmicGeneral:
 
     def opening_actions(self, state: CampaignState) -> list[ActionPlan]:
         """Setup phase: garrison owned objectives with seeded-random intensity
-        and placement, then buy support flights while preserving the reserve."""
+        and placement, then buy support flights while preserving the reserve.
+        No scripted opening moves: the opening endowment simply gives the
+        side the budget to assault right away if its doctrine rolls that way."""
         plans = [plan for plan in self.engine.legal_actions(state, self.side)
                  if plan.action in ("reinforce", "cap", "awacs", "tanker")
                  and self.scenario_objective_kind(plan.target) != "carrier"]
@@ -109,9 +122,11 @@ class AlgorithmicGeneral:
             candidates = [plan for plan in support if plan.action == action]
             if candidates:
                 support_cost += candidates[0].cost
-        # Garrison budget: everything except the support flights, and the
-        # reserve must survive the whole opening, not just the garrison phase.
-        garrison_budget = available - support_cost - self.reserve
+        # Garrison budget: everything except the support flights. The doctrine
+        # "every owned objective gets a garrison" outranks the reserve floor -
+        # an unguarded objective is a gift to the enemy. The reserve only
+        # limits EXTRA packages beyond the first per objective.
+        garrison_budget = available - support_cost
         owned_plans = sorted(
             owned,
             key=lambda item: (-self.engine.scenario.objectives[item.target].income,
@@ -134,10 +149,13 @@ class AlgorithmicGeneral:
                 available -= plan.cost
                 garrison_budget -= plan.cost
         # Support flights: AWACS and tanker first, then CAP, budget permitting.
+        # AWACS/tanker are standing doctrine (blind and unfuelled is worse than
+        # a low balance), so they may draw into the reserve; CAP may not.
         for action in ("awacs", "tanker", "cap"):
             candidates = [plan for plan in support if plan.action == action]
             self._random.shuffle(candidates)
-            if candidates and available - candidates[0].cost >= self.reserve:
+            floor = 0 if action in ("awacs", "tanker") else self.reserve
+            if candidates and available - candidates[0].cost >= floor:
                 selected.append(candidates[0])
                 available -= candidates[0].cost
         return selected
@@ -155,17 +173,31 @@ class AlgorithmicGeneral:
 
     def choose_action(self, state: CampaignState) -> ActionPlan | None:
         all_plans = [plan for plan in self.engine.legal_actions(state, self.side)
-                     if plan.action in ("assault", "reinforce", "awacs", "tanker", "cap", "strike")
+                     if plan.action in ("assault", "reinforce", "awacs", "tanker", "cap", "strike", "sead", "cas")
                      and self.scenario_objective_kind(plan.target) != "carrier"]
         # Force cap: at the limit, only air/support actions remain.
         if self.live_ground_groups >= self.max_ground_groups:
             all_plans = [plan for plan in all_plans
                          if plan.action not in ("assault", "reinforce")]
+        # Assault stacking cap: one assault package per objective at a time.
+        # A second wave is bought only after the first resolves (capture or
+        # destruction), keeping pushes readable and the server load sane.
+        all_plans = [plan for plan in all_plans
+                     if plan.action != "assault"
+                     or plan.target not in self.live_assault_targets]
         # Reactive triggers first: counter-attack a lost objective or reinforce
         # a threatened one. These may overdraw the bucket.
         urgent = [plan for plan in all_plans
                   if (plan.action == "assault" and plan.target in self.lost)
                   or (plan.action == "reinforce" and plan.target in self.threatened)]
+        # Counter-doctrine: an enemy assault in progress gets an armed response
+        # - strike the attacking force, CAP over the fight, or counter-assault
+        # the same objective. These may overdraw the bucket like other urgent
+        # reactions; war does not wait for payday.
+        if self.enemy_assaults:
+            urgent += [plan for plan in all_plans
+                       if plan.action in ("strike", "cas", "cap", "assault")
+                       and plan.target in self.enemy_assaults]
         urgent = self._affordable(state, urgent, urgent=True)
         # Support replacement is also urgent (standing rule): always airborne.
         # It ignores the reserve floor entirely - a side without AWACS/tanker
@@ -234,6 +266,31 @@ class AlgorithmicGeneral:
             if escorts:
                 self.free_escort = True
                 return escorts[0]
+        # Air-power doctrine: 30% of rounds launch an air mission instead of
+        # a ground move. Deep missions (strike/SEAD) are preferred over CAS
+        # so players actually see them; SEAD targets objectives with known
+        # SAMs (hard ones), strike/CAS hit enemy-held objectives - softening
+        # before an assault.
+        if self._random.random() < 0.3:
+            air_missions = [plan for plan in plans
+                            if plan.action in ("sead", "strike", "cas")]
+            if air_missions:
+                # Prefer SEAD against hard (SAM-heavy) objectives.
+                sead = [plan for plan in air_missions
+                        if plan.action == "sead"
+                        and self.engine.scenario.objectives[plan.target].difficulty == "hard"]
+                if sead and self._random.random() < 0.5:
+                    return self._random.choice(sead)
+                deep = [plan for plan in air_missions
+                        if plan.action in ("sead", "strike")]
+                if deep and self._random.random() < 0.7:
+                    return self._random.choice(deep)
+                return self._random.choice(air_missions)
         assaults = [plan for plan in plans if plan.action == "assault"]
+        # Reinforce is the safe bet; cap how often it eats a round so the
+        # battlefield stays offensive. At most every other routine round.
+        reinforces = [plan for plan in plans if plan.action == "reinforce"]
+        if reinforces and self._random.random() < 0.5:
+            plans = [plan for plan in plans if plan.action != "reinforce"] or reinforces
         candidates = assaults if assaults and self._random.random() < 0.7 else plans
         return self._random.choice(candidates)

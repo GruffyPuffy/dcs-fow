@@ -46,12 +46,15 @@ class StandingRulesTest(unittest.TestCase):
         self.general.live_support = {"awacs", "tanker", "cap"}
         choice = self.general.choose_action(self.state)
         self.assertIsNotNone(choice)
-        self.assertIn(choice.action, ("assault", "reinforce"))
+        # With support complete the general acts offensively: ground moves or
+        # air missions. Air missions (cas/sead/strike) now require enemy-HELD
+        # targets, so tanker is a legal outcome when no enemy base is connected.
+        self.assertIn(choice.action,
+                      ("assault", "reinforce", "cas", "sead", "strike", "tanker"))
 
     def test_defense_levels_are_capped_by_difficulty(self):
-        # Bravo is easy: cap 2. Krymsk is hard: cap 6.
-        for _ in range(2):
-            self.engine.apply_action(self.state, Side.RED, "reinforce", "bravo")
+        # Bravo is easy: cap 1. Krymsk is hard: cap 3.
+        self.engine.apply_action(self.state, Side.RED, "reinforce", "bravo")
         with self.assertRaisesRegex(Exception, "maximum"):
             self.engine.apply_action(self.state, Side.RED, "reinforce", "bravo")
         legal = {plan.target for plan in

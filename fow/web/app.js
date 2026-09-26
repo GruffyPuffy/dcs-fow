@@ -158,14 +158,16 @@ function initializeSituationMap() {
     missions: L.layerGroup().addTo(situationMap),
     forces: L.layerGroup().addTo(situationMap),
     airbases: L.layerGroup().addTo(situationMap),
-    statics: L.layerGroup().addTo(situationMap)
+    statics: L.layerGroup().addTo(situationMap),
+    kills: L.layerGroup().addTo(situationMap)
   };
   L.control.layers(null, {
     Objectives: situationLayers.objectives,
     Missions: situationLayers.missions,
     Forces: situationLayers.forces,
     Airbases: situationLayers.airbases,
-    Statics: situationLayers.statics
+    Statics: situationLayers.statics,
+    Kills: situationLayers.kills
   }, {position: 'bottomright'}).addTo(situationMap);
   L.control.zoom({position: 'bottomright'}).addTo(situationMap);
   const FitControl = L.Control.extend({
@@ -278,6 +280,31 @@ function situationUnitIcon(group, unit, count = group.units.length) {
   });
 }
 
+function unitDetailsHtml(group, unit, side, kind, groupHeader = null) {
+  const isAir = group.category === 0 || group.category === 1;
+  const altFt = isAir && Number.isFinite(unit.y) ? Math.round(unit.y * 3.28084) : null;
+  const speedKn = Number.isFinite(unit.speed_mps) ? Math.round(unit.speed_mps * 1.94384) : null;
+  const headingDeg = Number.isFinite(unit.heading) ? Math.round(unit.heading * 180 / Math.PI) : null;
+  const roeLabels = {open_fire: 'OPEN FIRE', return_fire: 'RETURN FIRE', weapon_hold: 'WEAPONS HOLD'};
+  const roe = roeLabels[group.roe] || (isAir ? '—' : 'unknown');
+  const rows = [
+    `<tr><th>Type</th><td>${escapeHtml(unit.type || '—')}</td></tr>`,
+    `<tr><th>Group</th><td>${escapeHtml(group.name)}</td></tr>`,
+    `<tr><th>Side</th><td>${side} ${kind}</td></tr>`,
+  ];
+  if (altFt !== null) rows.push(`<tr><th>Altitude</th><td>${altFt.toLocaleString()} ft</td></tr>`);
+  if (speedKn !== null) rows.push(`<tr><th>Speed</th><td>${speedKn} kn</td></tr>`);
+  if (headingDeg !== null) rows.push(`<tr><th>Heading</th><td>${headingDeg}°</td></tr>`);
+  if (Number.isFinite(unit.fuel)) rows.push(`<tr><th>Fuel</th><td>${Math.round(unit.fuel * 100)}%</td></tr>`);
+  if (unit.callsign) rows.push(`<tr><th>Callsign</th><td>${escapeHtml(unit.callsign)}</td></tr>`);
+  rows.push(`<tr><th>ROE</th><td>${roe}</td></tr>`);
+  rows.push(`<tr><th>Position</th><td>${unit.lat.toFixed(5)}, ${unit.lon.toFixed(5)}</td></tr>`);
+  const header = groupHeader
+    ? `<strong>${escapeHtml(groupHeader)}</strong>`
+    : `<strong>${escapeHtml(unit.name || unit.type)}</strong>`;
+  return `${header}<table class="unit-details">${rows.join('')}</table>`;
+}
+
 function renderSituationForces(snapshot) {
   situationLayers.forces.clearLayers();
   const expanded = situationMap.getZoom() >= 15;
@@ -291,12 +318,11 @@ function renderSituationForces(snapshot) {
     visibleUnits.forEach(unit => {
       const count = expanded ? 1 : units.length;
       const icon = situationUnitIcon(group, unit, count);
-      const title = expanded
-        ? `${escapeHtml(unit.type || unit.name)}<br>${escapeHtml(group.name)} · ${side} ${kind}`
-        : `${escapeHtml(group.name)}<br>${units.length} units · ${side} · ${kind}`;
-      const details = expanded
-        ? `<strong>${escapeHtml(unit.name || unit.type)}</strong><br>${escapeHtml(unit.type)}<br>${escapeHtml(group.name)}<br>${unit.lat.toFixed(5)}, ${unit.lon.toFixed(5)}`
-        : `<strong>${escapeHtml(group.name)}</strong><br>${units.length} units<br>Zoom in to inspect individual units`;
+      const title = `${escapeHtml(group.name)}<br>${units.length} units · ${side} ${kind}`;
+      // Group marker (zoomed out) shows the leader's stats with a group
+      // header; zoomed in each unit shows its own full details.
+      const details = unitDetailsHtml(group, unit, side, kind,
+        count > 1 ? `${group.name} · ${units.length} units (leader shown)` : null);
       const marker = L.marker([unit.lat, unit.lon], {icon})
         .bindTooltip(title, {className: 'map-label'})
         .bindPopup(details)
@@ -387,7 +413,29 @@ function renderSituation() {
     fitSituationMap();
     situationFitted = true;
   }
+  renderKillLayer(snapshot);
   renderSituationStats();
+}
+
+function renderKillLayer(snapshot) {
+  situationLayers.kills.clearLayers();
+  (snapshot?.kill_reports || []).forEach(report => {
+    if (!Number.isFinite(report.lat) || !Number.isFinite(report.lon)
+        || (report.lat === 0 && report.lon === 0)) return;
+    const side = report.target_side === 2 ? 'blue' : 'red';
+    const icon = L.divIcon({
+      className: 'kill-marker', iconSize: [14, 14], iconAnchor: [7, 7],
+      html: `<svg width="14" height="14"><line x1="1" y1="1" x2="13" y2="13" stroke="#c0392b" stroke-width="2.5"/><line x1="13" y1="1" x2="1" y2="13" stroke="#c0392b" stroke-width="2.5"/></svg>`
+    });
+    L.marker([report.lat, report.lon], {icon})
+      .bindPopup(`<strong>Unit destroyed</strong><table class="unit-details">` +
+        `<tr><th>Target</th><td>${escapeHtml(report.target_type)}</td></tr>` +
+        `<tr><th>Side</th><td>${side}</td></tr>` +
+        `<tr><th>Attacker</th><td>${escapeHtml(report.attacker)}</td></tr>` +
+        `<tr><th>Weapon</th><td>${escapeHtml(report.weapon)}</td></tr>` +
+        `<tr><th>Time</th><td>${Math.floor(report.time / 60)} min</td></tr></table>`)
+      .addTo(situationLayers.kills);
+  });
 }
 
 function renderSituationStats() {

@@ -36,6 +36,22 @@ local function default_ground_roe(group)
     ground_roe[key] = 'open_fire'
 end
 
+-- DCS controllers have no getOption; ROE is tracked here instead. Recorded
+-- whenever set_option applies a ROE change, defaulted per category.
+local air_roe = {}
+-- Group.Category may be absent outside DCS (test harnesses); fall back to
+-- the DCS numeric category ids (GROUND=2, AIRPLANE=0).
+local cat_ground = (Group and Group.Category and Group.Category.GROUND) or 2
+local cat_air = (Group and Group.Category and Group.Category.AIRPLANE) or 0
+local bridge_roe = { [cat_ground] = ground_roe, [cat_air] = air_roe }
+
+-- Default air groups to DCS's own default ROE so popups show a real value.
+local function default_air_roe(group)
+    local key = group:getName() .. ':' .. group:getID()
+    if air_roe[key] then return end
+    air_roe[key] = 'open_fire'
+end
+
 -- Retain a bounded event tail so polling does not consume or duplicate events.
 local kill_reports, kill_sequence, killed_targets = {}, 0, {}
 -- F10 radio menu selections, queued for the Python service via status polls.
@@ -131,11 +147,16 @@ function kill_handler:onEvent(event)
     kill_sequence = kill_sequence + 1
     local attacker_group = safe_call(event.initiator, 'getGroup')
     local weapon_type = event.weapon_name or safe_call(event.weapon, 'getTypeName')
+    local target_point = safe_call(event.target, 'getPoint')
+    local target_lat, target_lon = 0, 0
+    if target_point then target_lat, target_lon = coord.LOtoLL(target_point) end
     kill_reports[#kill_reports + 1] = '{"id":' .. kill_sequence
         .. ',"time":' .. number(event.time or timer.getTime())
         .. ',"target_id":' .. target_id
         .. ',"target_side":' .. (safe_call(event.target, 'getCoalition') or 0)
         .. ',"target_type":' .. quoted(safe_call(event.target, 'getTypeName') or 'Unknown target')
+        .. ',"lat":' .. geo_number(target_lat)
+        .. ',"lon":' .. geo_number(target_lon)
         .. ',"side":' .. (safe_call(event.initiator, 'getCoalition') or 0)
         .. ',"attacker":' .. quoted(safe_call(event.initiator, 'getName') or 'Unknown attacker')
         .. ',"attacker_group":' .. quoted(safe_call(attacker_group, 'getName') or '')
@@ -215,7 +236,8 @@ function FoWBridge.status(id)
                 groups[#groups + 1] = '{"id":' .. group:getID()
                     .. ',"name":' .. quoted(group:getName())
                     .. ',"coalition":' .. side
-                    .. ',"roe":' .. quoted(ground_roe[group:getName() .. ':' .. group:getID()] or 'unknown')
+                    .. ',"roe":' .. quoted(bridge_roe[group:getCategory()][group:getName() .. ':' .. group:getID()]
+                        or 'unknown')
                     .. ',"category":' .. group:getCategory()
                     .. ',"units":[' .. table.concat(units, ',') .. ']}'
             end
@@ -338,6 +360,7 @@ function FoWBridge.spawnGroup(id, country_id, category, group_data)
         return reply(id, false, 'SPAWN_FAILED')
     end
     local configured = pcall(default_ground_roe, group)
+    pcall(default_air_roe, group)
     local suffix = category == Group.Category.GROUND and
         (configured and ';ROE=OPEN_FIRE' or ';ROE=UNKNOWN') or ''
     return reply(id, true, 'SPAWN_ACCEPTED:' .. group_data.name .. suffix)
@@ -415,11 +438,17 @@ function FoWBridge.setOption(id, group_name, option_id, value)
     
     local ok = pcall(function()
         group:getController():setOption(option_id, value)
-        if group:getCategory() == Group.Category.GROUND and option_id == AI.Option.Ground.id.ROE then
+        local cat = group:getCategory()
+        if option_id == AI.Option.Ground.id.ROE and cat == Group.Category.GROUND then
             local modes = {[AI.Option.Ground.val.ROE.OPEN_FIRE]='open_fire',
                 [AI.Option.Ground.val.ROE.RETURN_FIRE]='return_fire',
                 [AI.Option.Ground.val.ROE.WEAPON_HOLD]='weapon_hold'}
             ground_roe[group:getName() .. ':' .. group:getID()] = modes[value] or 'unknown'
+        elseif option_id == AI.Option.Air.id.ROE and cat == Group.Category.AIRPLANE then
+            local modes = {[AI.Option.Air.val.ROE.OPEN_FIRE]='open_fire',
+                [AI.Option.Air.val.ROE.RETURN_FIRE]='return_fire',
+                [AI.Option.Air.val.ROE.WEAPONS_HOLD]='weapon_hold'}
+            air_roe[group:getName() .. ':' .. group:getID()] = modes[value] or 'unknown'
         end
     end)
     
@@ -472,6 +501,9 @@ timer.scheduleFunction(function(_, now)
     for _, side in ipairs({coalition.side.RED, coalition.side.BLUE}) do
         for _, group in pairs(coalition.getGroups(side, Group.Category.GROUND) or {}) do
             if group and group:isExist() then pcall(default_ground_roe, group) end
+        end
+        for _, group in pairs(coalition.getGroups(side, Group.Category.AIRPLANE) or {}) do
+            if group and group:isExist() then pcall(default_air_roe, group) end
         end
     end
     return now + 5

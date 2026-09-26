@@ -1,6 +1,7 @@
 """Deterministic, DCS-independent campaign rule engine."""
 
 from dataclasses import replace
+from time import time as time_now
 from typing import Any
 
 from .models import ActionPlan, CampaignEvent, CampaignPhase, CampaignState, ObjectiveState, Side
@@ -26,10 +27,12 @@ class CampaignEngine:
             },
         )
         # Pre-existing fortification credit: Red's opening garrisons are paid
-        # from this endowment, not from the running campaign balance.
-        endowment = self.scenario.economy.red_opening_endowment
-        if endowment:
-            state.resources[Side.RED] += endowment
+        # from this endowment, not from the running campaign balance. Blue's
+        # endowment funds its opening assaults on the neutral front line.
+        if self.scenario.economy.red_opening_endowment:
+            state.resources[Side.RED] += self.scenario.economy.red_opening_endowment
+        if self.scenario.economy.blue_opening_endowment:
+            state.resources[Side.BLUE] += self.scenario.economy.blue_opening_endowment
         state.events.append(CampaignEvent(1, "campaign_started", None, {}))
         return state
 
@@ -94,19 +97,29 @@ class CampaignEngine:
 
     def max_defense_level(self, target_id: str) -> int:
         """Defense ceiling per objective; keeps Red beatable and creates
-        easy/normal/hard targets for players."""
-        return {"easy": 2, "normal": 4, "hard": 6}[
+        easy/normal/hard targets for players. Kept low so bases cannot be
+        stacked into impenetrable fortresses - reinforce is a patch, not a
+        strategy."""
+        return {"easy": 1, "normal": 2, "hard": 3}[
             self.scenario.objectives[target_id].difficulty]
+
+    # Seconds an attacker must hold exclusive presence before an objective
+    # flips. A walk-in does not take a base: the defender gets this window
+    # to reinforce and fight. Two ticks at ~60s awareness cadence ~ 2 min.
+    capture_hold_seconds = 120.0
 
     def evaluate_capture(self, state: CampaignState,
                          presence: dict[str, dict[int, int]]) -> list[dict[str, Any]]:
         """Flip objective ownership from observed ground presence.
 
-        An objective changes hands when an assaulting coalition has ground
-        units inside it and the owning coalition has none. Neutral objectives
-        are captured by whichever side is present. Returns the flips made.
+        An objective changes hands when an assaulting coalition has held
+        exclusive ground presence (owner has none) for capture_hold_seconds.
+        While contested the owner may still reinforce - the base is only
+        "taken" after the fight. Neutral objectives are contested by whichever
+        side is present. Returns the flips made.
         """
         flips: list[dict[str, Any]] = []
+        now = time_now()
         for objective_id, counts in presence.items():
             current = state.objectives[objective_id]
             owner = current.owner
@@ -121,9 +134,26 @@ class CampaignEngine:
                 elif counts[2] > 0 and counts[1] == 0:
                     attacker = Side.BLUE
             if attacker is None or attacker == owner:
+                # Fight is over or never started: clear any stale contest.
+                if current.contested_since is not None:
+                    state.objectives[objective_id] = replace(
+                        current, contested_since=None)
                 continue
+            # Start or continue the contest clock.
+            if current.contested_since is None:
+                state.objectives[objective_id] = replace(
+                    current, contested_since=now)
+                state.events.append(CampaignEvent(
+                    sequence=len(state.events) + 1,
+                    kind="objective_contested",
+                    side=attacker,
+                    detail={"objective": objective_id},
+                ))
+                continue
+            if now - current.contested_since < self.capture_hold_seconds:
+                continue  # still fighting; defender may reinforce
             state.objectives[objective_id] = replace(
-                current, owner=attacker, defense_level=0)
+                current, owner=attacker, defense_level=0, contested_since=None)
             flips.append({
                 "objective": objective_id,
                 "from": owner.value if owner else None,
@@ -139,7 +169,7 @@ class CampaignEngine:
         return flips
 
     def collect_income(self, state: CampaignState) -> dict[Side, int]:
-        income = {side: 0 for side in Side}
+        income = {side: self.scenario.economy.base_income for side in Side}
         for objective_id, objective_state in state.objectives.items():
             if objective_state.owner:
                 income[objective_state.owner] += self.scenario.objectives[objective_id].income
@@ -170,6 +200,13 @@ class CampaignEngine:
             return False
         if action.target_ownership == "not_friendly" and owner == side:
             return False
+        # "enemy" is stricter: only objectives currently HELD by the other
+        # side. Strikes/SEAD/CAS hit confirmed troops and bases, not empty
+        # neutral ground nobody owns.
+        if action.target_ownership == "enemy":
+            enemy = Side.RED if side == Side.BLUE else Side.BLUE
+            if owner != enemy:
+                return False
         if action.requires_connection:
             target = self.scenario.objectives[target_id]
             return any(state.objectives[neighbor].owner == side for neighbor in target.connections)

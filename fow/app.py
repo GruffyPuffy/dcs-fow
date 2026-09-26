@@ -179,6 +179,9 @@ class FoWService:
                         sequence = len(self._campaign.events)
                         jobs.append((plan, sequence))
                         self._deployments.append(self._deployment(plan, sequence))
+                        # Tactical comms: announce Blue orders to Blue players.
+                        if side == Side.BLUE:
+                            self._announce_order(plan)
                         # Mark matching player requests as approved.
                         for request in self._player_requests:
                             if (request["side"] == side.value
@@ -238,6 +241,14 @@ class FoWService:
                     # Only offensive groups count against the cap; garrisons
                     # are the opening posture, not runaway spawning.
                     and " Assault " in str(group.get("name", "")))
+                # Objectives this side is already assaulting (active assault
+                # deployments) - blocks stacking a second package on one zone.
+                self._generals[side].live_assault_targets = {
+                    deployment["target"] for deployment in self._deployments
+                    if deployment["side"] == side.value
+                    and deployment["action"] == "assault"
+                    and deployment["status"] == "active"
+                    and deployment["target"] in self.scenario.objectives}
             presence = self.awareness.objective_presence(self.scenario, snapshot)
             flips = self.engine.evaluate_capture(self._campaign, presence)
             # Reactive triggers: an objective we own with enemy ground present
@@ -254,11 +265,47 @@ class FoWService:
                     and counts.get(enemy_coalition, 0) > 0}
                 general.lost = {
                     flip["objective"] for flip in flips if flip["to"] == enemy[side].value}
+                # Enemy assaults in progress (active assault deployments by
+                # the opposing side) drive counter-doctrine: strike/CAP/
+                # counter-assault against the attacking force.
+                general.enemy_assaults = {
+                    deployment["target"] for deployment in self._deployments
+                    if deployment["side"] == enemy[side].value
+                    and deployment["action"] == "assault"
+                    and deployment["status"] == "active"
+                    and deployment["target"] in self.scenario.objectives}
             if flips:
                 self._apply_slot_access()
                 self._reposition_support(flips)
                 self._save_locked()
             self._send_intel(flips, presence)
+            self._announce_takeoffs(snapshot)
+
+    def _announce_takeoffs(self, snapshot: dict) -> None:
+        """Tactical comms: announce Blue flights as they take off (first seen
+        airborne with altitude). One message per deployment."""
+        for deployment in self._deployments:
+            if (deployment["side"] != "blue"
+                    or deployment["action"] not in ("cap", "cas", "sead",
+                                                    "strike", "awacs", "tanker")
+                    or deployment.get("announced_takeoff")):
+                continue
+            for group in snapshot.get("groups", []):
+                if group.get("name") not in deployment.get("names", []):
+                    continue
+                unit = next((u for u in group.get("units", [])
+                             if (u.get("y") or 0) > 100), None)
+                if unit is None:
+                    continue
+                deployment["announced_takeoff"] = True
+                objective = self.scenario.objectives[deployment["target"]]
+                try:
+                    self.dcs.message(
+                        f"[FoW] {deployment['action'].upper()} airborne - "
+                        f"tasking: {objective.label}", 2, 15)
+                except (OSError, RuntimeError, ValueError):
+                    pass
+                break
 
     def _reposition_support(self, flips: list[dict]) -> None:
         """AWACS controller: when territory near a support racetrack changes
@@ -338,6 +385,14 @@ class FoWService:
             objective = self.scenario.objectives[objective_id]
             tell(f"threat:{objective_id}",
                  f"[FoW] Enemy ground forces at {objective.label}!")
+        # Contested objectives: the fight for a base is on - hold or lose it.
+        contested = {objective_id: state for objective_id, state
+                     in self._campaign.objectives.items()
+                     if state.contested_since is not None}
+        for objective_id in contested:
+            objective = self.scenario.objectives[objective_id]
+            tell(f"contested:{objective_id}",
+                 f"[FoW] {objective.label} is CONTESTED - fight for control!")
         # Red assaults are only reported when Blue has eyes on the target
         # (its own adjacent objective is threatened) - not every Red move.
         for deployment in self._deployments:
@@ -384,6 +439,27 @@ class FoWService:
             "label": f"{objective.label} {action.upper()}",
         }]
 
+    def _announce_order(self, plan) -> None:
+        """Tactical comms: tell Blue players what their general just ordered."""
+        objective = self.scenario.objectives[plan.target]
+        labels = {
+            "assault": f"Ground assault launched on {objective.label}.",
+            "reinforce": f"Reinforcements moving to {objective.label}.",
+            "cap": f"CAP flight scrambling - {objective.label}.",
+            "cas": f"CAS flight inbound - {objective.label}.",
+            "sead": f"SEAD flight inbound - {objective.label}.",
+            "strike": f"Strike flight inbound - {objective.label}.",
+            "awacs": f"AWACS launching - {objective.label}.",
+            "tanker": f"Tanker launching - {objective.label}.",
+            "jtac": f"JTAC team deploying to {objective.label}.",
+        }
+        text = labels.get(plan.action)
+        if text:
+            try:
+                self.dcs.message(f"[FoW] {text}", 2, 15)
+            except (OSError, RuntimeError, ValueError):
+                pass
+
     def _execute_jobs(self, jobs: list[tuple]) -> None:
         for plan, sequence in jobs:
             with self._lock:
@@ -404,6 +480,11 @@ class FoWService:
                     self._deployments.append(result)
                 else:
                     existing.update(result)
+                # A failed deployment wasted the credits it cost (DCS could
+                # not place the groups). Refund so a bad spawn spot does not
+                # silently burn the general's budget.
+                if result.get("status") == "failed":
+                    self._campaign.resources[plan.side] += plan.cost
                 snapshot = self.dcs.public_snapshot()
                 if snapshot:
                     self._last_dcs_mission_id = snapshot["mission_id"]
@@ -433,6 +514,18 @@ class FoWService:
                         deployment["action"], Side(deployment["side"]),
                         deployment["target"], action.cost, action.package)
                     deployment.update(status="waiting", error="Rehydrating in DCS")
+                    jobs.append((plan, deployment["sequence"]))
+                    changed = True
+                elif deployment["action"] in ("cap", "cas", "sead", "strike",
+                                              "awacs", "tanker"):
+                    # Air cycle: a flight that was active and is now gone was
+                    # shot down or landed after its station time. Relaunch it
+                    # from its base so the air war keeps running.
+                    action = self.scenario.actions[deployment["action"]]
+                    plan = ActionPlan(
+                        deployment["action"], Side(deployment["side"]),
+                        deployment["target"], action.cost, action.package)
+                    deployment.update(status="waiting", error="Relaunching air cycle")
                     jobs.append((plan, deployment["sequence"]))
                     changed = True
             self._last_dcs_mission_id = mission_id

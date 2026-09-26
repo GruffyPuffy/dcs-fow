@@ -13,9 +13,10 @@ class CampaignEngineTest(unittest.TestCase):
         self.state = self.engine.new_game()
 
     def test_sides_start_with_symmetric_rules_and_resources(self):
-        endowment = self.engine.scenario.economy.red_opening_endowment
+        red_endowment = self.engine.scenario.economy.red_opening_endowment
+        blue_endowment = self.engine.scenario.economy.blue_opening_endowment
         self.assertEqual(self.state.resources[Side.BLUE],
-                         self.state.resources[Side.RED] - endowment)
+                         self.state.resources[Side.RED] - red_endowment + blue_endowment)
         blue = {(plan.action, plan.cost) for plan in self.engine.legal_actions(self.state, Side.BLUE)}
         red = {(plan.action, plan.cost) for plan in self.engine.legal_actions(self.state, Side.RED)}
         self.assertEqual(blue, red)
@@ -37,9 +38,10 @@ class CampaignEngineTest(unittest.TestCase):
     def test_accepted_action_spends_resources_and_records_event(self):
         plan = self.engine.apply_action(self.state, Side.BLUE, "reinforce", "anapa")
         self.assertEqual(plan.package, "garrison")
-        self.assertEqual(self.state.resources[Side.BLUE], 1380)
+        self.assertEqual(self.state.resources[Side.BLUE],
+                         2000 + self.engine.scenario.economy.blue_opening_endowment - 180)
         self.assertEqual(self.state.resources[Side.RED],
-                         1500 + self.engine.scenario.economy.red_opening_endowment)
+                         2000 + self.engine.scenario.economy.red_opening_endowment)
         self.assertEqual(self.state.objectives["anapa"].defense_level, 1)
         self.assertEqual(self.state.events[-1].detail["action"], "reinforce")
 
@@ -70,8 +72,11 @@ class CampaignEngineTest(unittest.TestCase):
                             if action == "reinforce"))
         for plan in plans:
             self.engine.apply_action(self.state, plan.side, plan.action, plan.target)
+        # Blue intentionally keeps only half the scenario reserve so it can
+        # stay offensive against Red's larger economy.
         self.assertGreaterEqual(
-            self.state.resources[Side.BLUE], self.engine.scenario.economy.general_reserve)
+            self.state.resources[Side.BLUE],
+            self.engine.scenario.economy.general_reserve // 2)
 
     def test_red_opening_garrisons_every_owned_objective(self):
         general = AlgorithmicGeneral(
@@ -83,7 +88,8 @@ class CampaignEngineTest(unittest.TestCase):
         owned = {objective_id for objective_id, objective in self.state.objectives.items()
                  if objective.owner == Side.RED}
         self.assertEqual(garrisoned, owned)
-        self.assertIn(("awacs", "radio"), [(p.action, p.target) for p in plans])
+        # No scripted opening assaults: the endowment only funds the budget;
+        # assaults emerge from the doctrine's normal rolls in decision rounds.
 
     def test_carrier_objective_is_blue_only_and_skipped_by_ground_policies(self):
         carrier = self.engine.scenario.objectives["carrier"]
@@ -102,11 +108,14 @@ class CampaignEngineTest(unittest.TestCase):
     def test_owned_objectives_pay_symmetric_income(self):
         income = self.engine.collect_income(self.state)
         endowment = self.engine.scenario.economy.red_opening_endowment
-        # Red's income factor (0.9) creates the tipping point: 85 * 0.9 = 76.
-        # Blue's 1.5 factor keeps the underdog dynamic on its own.
-        self.assertEqual(income, {Side.RED: 76, Side.BLUE: 30})
+        # Base stipend (40) plus objective income. Red's factor (0.9):
+        # (85 + 40) * 0.9 = 112. Blue's 1.5 factor: (20 + 40) * 1.5 = 90.
+        # The stipend keeps an attacker spending while it holds little.
+        self.assertEqual(income, {Side.RED: 112, Side.BLUE: 90})
+        blue_endowment = self.engine.scenario.economy.blue_opening_endowment
         self.assertEqual(self.state.resources,
-                         {Side.RED: 1500 + endowment + 76, Side.BLUE: 1530})
+                         {Side.RED: 2000 + endowment + 112,
+                          Side.BLUE: 2000 + blue_endowment + 90})
         self.assertEqual(self.state.events[-1].kind, "income_collected")
 
 

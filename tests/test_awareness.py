@@ -1,6 +1,7 @@
 """Awareness layer: attrition, presence, and objective capture."""
 
 import unittest
+from dataclasses import replace
 
 from fow.campaign import CampaignEngine, Side, load_scenario
 from fow.dcs.awareness import Awareness
@@ -56,6 +57,12 @@ class AwarenessTest(unittest.TestCase):
         # Blue assault force arrives, Red defenders dead.
         snapshot = {"groups": [group("Blue Assault", 2, krymsk.lat, krymsk.lon, units=4)]}
         presence = self.awareness.objective_presence(scenario, snapshot)
+        # First sight starts the contest; capture needs a hold window.
+        self.assertEqual(self.engine.evaluate_capture(self.state, presence), [])
+        self.assertTrue(self.state.objectives["krymsk"].contested_since is not None)
+        self.state.objectives["krymsk"] = replace(
+            self.state.objectives["krymsk"],
+            contested_since=self.state.objectives["krymsk"].contested_since - 999)
         flips = self.engine.evaluate_capture(self.state, presence)
         self.assertEqual(flips, [{"objective": "krymsk", "from": "red", "to": "blue"}])
         self.assertEqual(self.state.objectives["krymsk"].owner, Side.BLUE)
@@ -77,6 +84,11 @@ class AwarenessTest(unittest.TestCase):
         alpha = scenario.objectives["alpha"]
         snapshot = {"groups": [group("Red Force", 1, alpha.lat, alpha.lon, units=4)]}
         presence = self.awareness.objective_presence(scenario, snapshot)
+        # First sight contests; capture needs the hold window.
+        self.assertEqual(self.engine.evaluate_capture(self.state, presence), [])
+        self.state.objectives["alpha"] = replace(
+            self.state.objectives["alpha"],
+            contested_since=self.state.objectives["alpha"].contested_since - 999)
         flips = self.engine.evaluate_capture(self.state, presence)
         self.assertEqual(flips, [{"objective": "alpha", "from": None, "to": "red"}])
 

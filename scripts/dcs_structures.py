@@ -371,6 +371,93 @@ def build_ground_route(current_lat: float, current_lon: float, lat: float, lon: 
     ]}
 
 
+def build_base_start_data(side: str, preset_config: dict, group_template: dict | None,
+                          group_name: str, base_lat: float, base_lon: float,
+                          station_start: tuple[float, float], station_end: tuple[float, float],
+                          on_station_seconds: int, base_name: str) -> dict:
+    """Build a cold-start air group on a runway with a full mission route:
+    takeoff -> station racetrack (timed) -> land back at the launch base.
+    """
+    import copy
+    group_data = copy.deepcopy(group_template) if group_template else {
+        'units': [{'type': preset_config.get('aircraft', 'FA_18C_hornet'),
+                   'heading': 0, 'skill': 'High', 'alt': 0, 'speed': 0,
+                   'alt_type': 'BARO'}],
+        'route': {'points': [{}, {}, {}, {}]},
+        'x': 0, 'y': 0, 'hidden': False, 'visible': True, 'start_time': 0,
+        'task': 'Nothing', 'modulation': 0, 'frequency': 124,
+        'uncontrolled': False,
+    }
+    group_data['name'] = group_name
+    group_data['task'] = {'tanker': 'Refueling', 'transport': 'Transport',
+                          'patrol': 'Nothing'}.get(preset_config['mission_type'],
+                                                   preset_config['mission_type'])
+    group_data.pop('groupId', None)
+    units = group_data.get('units', [])
+    if isinstance(units, dict):
+        units = [units[k] for k in sorted(units.keys(), key=lambda x: int(x) if isinstance(x, str) and x.isdigit() else x)]
+        group_data['units'] = units
+    if units:
+        unit = units[0]
+        unit['name'] = f"{group_name} Pilot 1"
+        unit.pop('unitId', None)
+        unit['skill'] = 'High'
+        unit['alt'] = 0
+        unit['alt_type'] = 'BARO'
+        unit['speed'] = 0
+        unit['heading'] = 0
+        unit['__geo'] = {'lat': base_lat, 'lon': base_lon}
+    altitude = preset_config['altitude_m']
+    speed = preset_config['speed_mps']
+    mission_task = _build_mission_task(
+        preset_config['mission_type'], altitude, speed,
+        orbit_pattern='Race-Track', stop_after_seconds=on_station_seconds)
+    points = group_data['route'].get('points', [])
+    if isinstance(points, dict):
+        points = [points.get(str(i + 1), {}) for i in range(max(int(k) for k in points.keys() if str(k).isdigit()))]
+        group_data['route']['points'] = points
+    while len(points) < 4:
+        points.append({})
+    points[0] = {
+        'alt': 0, 'alt_type': 'BARO', 'speed': 0, 'speed_locked': True,
+        'type': 'TakeOff', 'action': 'From Runway',
+        'name': f'Takeoff {base_name}',
+        'task': {'id': 'ComboTask', 'params': {'tasks': []}},
+        'airdromeId': {'__ref': 'airbase_id', 'name': base_name},
+        '__geo': {'lat': base_lat, 'lon': base_lon},
+    }
+    points[1] = {
+        'alt': altitude, 'alt_type': 'BARO', 'speed': speed,
+        'speed_locked': True, 'ETA': 0, 'ETA_locked': False,
+        'type': 'Turning Point', 'action': 'Turning Point',
+        'name': 'Station start', 'task': mission_task,
+        '__geo': {'lat': station_start[0], 'lon': station_start[1]},
+    }
+    points[2] = {
+        'alt': altitude, 'alt_type': 'BARO', 'speed': speed,
+        'speed_locked': True, 'ETA': 0, 'ETA_locked': False,
+        'type': 'Turning Point', 'action': 'Turning Point',
+        'name': 'Station end',
+        'task': {'id': 'ComboTask', 'params': {'tasks': []}},
+        '__geo': {'lat': station_end[0], 'lon': station_end[1]},
+    }
+    points[3] = {
+        'alt': 0, 'alt_type': 'BARO', 'speed': min(150, speed),
+        'speed_locked': True, 'type': 'Land', 'action': 'Landing',
+        'name': f'RTB {base_name}',
+        'task': {'id': 'ComboTask', 'params': {'tasks': []}},
+        'airdromeId': {'__ref': 'airbase_id', 'name': base_name},
+        '__geo': {'lat': base_lat, 'lon': base_lon},
+    }
+    group_data['route']['points'] = points[:4]
+    group_data['__geo'] = {'lat': base_lat, 'lon': base_lon}
+    return {
+        'country_id': 2 if side == 'blue' else 0,
+        'category': 0,
+        'group_data': group_data,
+    }
+
+
 def build_ground_spawn_data(side: str, template: dict, group_name: str,
                             lat: float, lon: float,
                             destination: tuple[float, float] | None = None) -> dict:
