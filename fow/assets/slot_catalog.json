@@ -1,0 +1,47 @@
+{
+  "id": "caucasus_slots",
+  "map": "Caucasus",
+  "player_side": "blue",
+  "policy": "One universal slot shell serves every Caucasus campaign graph. All slots are baked disabled; the FoW server opens them at runtime via set_slot_access based on objective ownership.",
+  "naming": "FoW <Base> <Aircraft> <Start><n>",
+  "fixed_wing": [
+    {"aircraft": "FA-18C_hornet", "label": "F/A-18C Hornet", "starts": ["runway", "cold", "cold"]},
+    {"aircraft": "F-16C_50", "label": "F-16C Viper", "starts": ["runway", "cold"]},
+    {"aircraft": "F-14B", "label": "F-14B Tomcat", "starts": ["runway", "cold"]},
+    {"aircraft": "F-14A-135-GR", "label": "F-14A Tomcat (Upgrade)", "starts": ["cold"]},
+    {"aircraft": "F-15C", "label": "F-15C Eagle", "starts": ["runway", "cold"]},
+    {"aircraft": "F-15E", "label": "F-15E Strike Eagle", "starts": ["cold"]},
+    {"aircraft": "A-10C_2", "label": "A-10C II Tankkiller", "starts": ["runway", "cold"]},
+    {"aircraft": "Su-25T", "label": "Su-25T Frogfoot", "starts": ["runway", "cold"]},
+    {"aircraft": "C-130", "label": "C-130 Hercules", "starts": ["cold"], "requires_big_slot": true}
+  ],
+  "helicopters": [
+    {"aircraft": "Mi-8MT", "label": "Mi-8MT Hip", "starts": ["cold"]},
+    {"aircraft": "UH-1H", "label": "UH-1H Huey", "starts": ["cold"]},
+    {"aircraft": "Ka-50", "label": "Ka-50 Black Shark", "starts": ["cold"]},
+    {"aircraft": "AH-64D_BLK_II", "label": "AH-64D Apache", "starts": ["cold"]}
+  ],
+  "bases": [
+    {"name": "Anapa-Vityazevo", "parking_limit": 16},
+    {"name": "Krasnodar-Center", "parking_limit": 12},
+    {"name": "Krasnodar-Pashkovsky", "parking_limit": 12},
+    {"name": "Krymsk", "parking_limit": 14},
+    {"name": "Maykop-Khanskaya", "parking_limit": 14},
+    {"name": "Novorossiysk", "parking_limit": 12},
+    {"name": "Gelendzhik", "parking_limit": 8},
+    {"name": "Sochi-Adler", "parking_limit": 14},
+    {"name": "Sukhumi-Babushara", "parking_limit": 10},
+    {"name": "Gudauta", "parking_limit": 10},
+    {"name": "Senaki-Kolkhi", "parking_limit": 14},
+    {"name": "Kobuleti", "parking_limit": 12},
+    {"name": "Kutaisi", "parking_limit": 14},
+    {"name": "Batumi", "parking_limit": 8},
+    {"name": "Mineralnye Vody", "parking_limit": 10},
+    {"name": "Nalchik", "parking_limit": 8},
+    {"name": "Beslan", "parking_limit": 8},
+    {"name": "Mozdok", "parking_limit": 12},
+    {"name": "Tbilisi-Lochini", "parking_limit": 14},
+    {"name": "Vaziani", "parking_limit": 16},
+    {"name": "Soganlug", "parking_limit": 4}
+  ]
+}

@@ -33,22 +33,27 @@ docker exec "$container" /bin/bash -lc \
    fi'
 docker exec "$container" rm -rf "$build_root"
 docker exec "$container" mkdir -p \
-  "$build_root/fow/dcs" "$build_root/fow/scenarios" "$build_root/missions"
+  "$build_root/fow/dcs" "$build_root/fow/scenarios" "$build_root/fow/assets" \
+  "$build_root/missions"
 docker cp "$repo_dir/fow/dcs/build_shell_mission.py" \
   "$container:$build_root/fow/dcs/build_shell_mission.py"
 docker cp "$repo_dir/fow/dcs/slot_guard.lua" \
   "$container:$build_root/fow/dcs/slot_guard.lua"
 docker cp "$scenario" "$container:$build_root/fow/scenarios/caucasus_pve.json"
+docker cp "$repo_dir/fow/assets/slot_catalog.json" \
+  "$container:$build_root/fow/assets/slot_catalog.json"
 docker cp "$repo_dir/missions/fow_bridge_generic.lua" \
   "$container:$build_root/missions/fow_bridge_generic.lua"
 docker exec -w "$build_root" "$container" "$container_venv/bin/python" \
   fow/dcs/build_shell_mission.py --output "$container_output" 2>&1 | tail -n 5
+catalog_slots="$(docker exec -w "$build_root" "$container" "$container_venv/bin/python" \
+  fow/dcs/build_shell_mission.py --output "$container_output" 2>/dev/null | grep -o 'catalog_slots=[0-9]*' | cut -d= -f2)"
 
 mkdir -p "$(dirname "$output")"
 temporary="$(mktemp "$(dirname "$output")/.fow-shell.XXXXXX.miz")"
 trap 'rm -f "$temporary"' EXIT
 docker cp "$container:$container_output" "$temporary"
-python3 - "$temporary" "$scenario" <<'PY'
+python3 - "$temporary" "$scenario" "$repo_dir/fow/assets/slot_catalog.json" "$catalog_slots" <<'PY'
 import json
 import sys
 import zipfile
@@ -58,7 +63,12 @@ with open(sys.argv[2]) as stream:
 with zipfile.ZipFile(sys.argv[1]) as archive:
     mission = archive.read("mission").decode("utf-8")
 slots = scenario["mission"]["client_slots"]
-if mission.count('["skill"]="Client"') != len(slots):
+with open(sys.argv[3]) as stream:
+    catalog = json.load(stream)
+# The builder prints catalog_slots=N; the mission must contain the 3 legacy
+# client slots plus every catalog slot as a Client unit.
+expected_clients = len(slots) + int(sys.argv[4])
+if mission.count('["skill"]="Client"') != expected_clients:
     raise SystemExit("Mission validation failed: unexpected Client slot count")
 for marker in ["FOW_BRIDGE_READY", "set_slot_access", *[slot["name"] for slot in slots]]:
     if marker not in mission:

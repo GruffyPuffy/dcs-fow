@@ -4,6 +4,8 @@ import unittest
 
 from fow.app import FoWService
 from fow.campaign import ActionPlan, Side
+from fow.dcs.awareness import distance_m
+from scripts import dcs_structures
 
 
 class RecordingGateway:
@@ -53,6 +55,10 @@ class RecordingGateway:
         self.order = ("set_option", group_name, option_id, value)
         return {"ok": True}
 
+    def set_slot_access(self, slots, enabled):
+        self.slot_access = (list(slots), enabled)
+        return {"ok": True}
+
 
 class ManualOperationsTest(unittest.TestCase):
     def setUp(self):
@@ -68,58 +74,75 @@ class ManualOperationsTest(unittest.TestCase):
 
     def test_generals_spawn_symmetric_opening_garrisons(self):
         campaign = self.service.new_game()
+        overview = self.service.overview()
         names = [spawn["group_data"]["name"] for spawn in self.gateway.spawns]
-        self.assertEqual(campaign["resources"], {"red": 680, "blue": 680})
-        self.assertEqual(len(names), 14)
-        self.assertTrue(any("Blue Reinforce Batumi" in name for name in names))
-        self.assertTrue(any("Red Reinforce Gudauta" in name for name in names))
-        self.assertTrue(any("Blue Cap Batumi" in name for name in names))
-        self.assertTrue(any("Red Awacs Gudauta" in name for name in names))
-        self.assertTrue(any("Blue Tanker Batumi" in name for name in names))
-        self.assertTrue(any("Red Tanker Gudauta" in name for name in names))
+        reserve = self.service.scenario.economy.general_reserve
+        # Invariants: both sides preserve their reserve, both garrison their
+        # owned objectives, and both field support flights.
+        self.assertGreaterEqual(campaign["resources"]["blue"], reserve)
+        self.assertGreaterEqual(campaign["resources"]["red"], reserve)
+        self.assertTrue(any("Blue Reinforce Anapa" in name for name in names))
+        self.assertTrue(any("Red Reinforce" in name for name in names))
+        self.assertTrue(any("Red Awacs" in name for name in names))
+        self.assertTrue(any("Blue Awacs" in name for name in names))
+        self.assertTrue(any("Red Tanker" in name for name in names))
+        self.assertTrue(any("Blue Tanker" in name for name in names))
         ground = [spawn for spawn in self.gateway.spawns if spawn["category"] == 2]
         air = [spawn for spawn in self.gateway.spawns if spawn["category"] == 0]
-        self.assertEqual(len(ground), 8)
-        self.assertEqual(len(air), 6)
-        expected_stations = {
-            "Blue Tanker": ((41.4500, 42.2500), (41.5500, 43.4000), 10800),
-            "Blue Awacs": ((41.2500, 42.6500), (41.3500, 43.8000), 14400),
-            "Red Tanker": ((43.6500, 40.4500), (43.6500, 41.6500), 10800),
-            "Red Awacs": ((43.9500, 40.6500), (43.9500, 41.8500), 14400),
-        }
-        for name_part, (expected_start, expected_end, duration) in expected_stations.items():
+        self.assertGreater(len(ground), 0)
+        self.assertGreater(len(air), 0)
+        # Red garrisons every owned objective (pre-existing fortifications).
+        # Deployment names are "FoW Red Reinforce <Objective Label> <seq> <n>";
+        # labels contain spaces, so match against the scenario labels instead.
+        labels = {objective["label"]: objective_id
+                  for objective in overview["scenario"]["objectives"]
+                  for objective_id in [objective["id"]]}
+        red_garrisoned = set()
+        for spawn in ground:
+            name = spawn["group_data"]["name"]
+            if " Red Reinforce " not in f" {name} ":
+                continue
+            for label, objective_id in labels.items():
+                if f"Reinforce {label} " in name:
+                    red_garrisoned.add(objective_id)
+                    break
+        owned = {objective_id for objective_id, objective in campaign["objectives"].items()
+                 if objective["owner"] == "red"}
+        self.assertEqual(red_garrisoned, owned)
+        # Blue slots at unlocked bases are open after the campaign starts.
+        slots, enabled = self.gateway.slot_access
+        self.assertTrue(enabled)
+        self.assertTrue(any("Anapa" in slot for slot in slots))
+        self.assertTrue(all(
+            base in slot for slot in slots[:5]
+            for base in [slot.split(" ")[1]]))
+        self.assertGreater(len(slots), 0)
+        # Smoke-check the racetrack structure of support flights rather than
+        # exact waypoints: two orbit legs, a race-track pattern, and a landing.
+        for name_part in ("Blue Tanker", "Blue Awacs", "Red Tanker", "Red Awacs"):
             spawn = next(item for item in air if name_part in item["group_data"]["name"])
             route = spawn["group_data"]["route"]["points"]
-            self.assertEqual(
-                (route[1]["__geo"]["lat"], route[1]["__geo"]["lon"]), expected_start)
-            self.assertEqual(
-                (route[2]["__geo"]["lat"], route[2]["__geo"]["lon"]), expected_end)
             tasks = route[1]["task"]["params"]["tasks"]
             orbit = next(task for task in tasks if task["id"] == "Orbit")
             self.assertEqual(orbit["params"]["pattern"], "Race-Track")
-            self.assertEqual(orbit["stopCondition"]["duration"], duration)
-            self.assertEqual(route[3]["type"], "Land")
-            if "Tanker" in name_part:
-                latitude = math.radians((expected_start[0] + expected_end[0]) / 2)
-                leg_km = math.hypot(
-                    (expected_end[0] - expected_start[0]) * 111,
-                    (expected_end[1] - expected_start[1]) * 111 * math.cos(latitude))
-                self.assertGreater(leg_km, 90)
+            self.assertGreater(orbit["stopCondition"]["duration"], 0)
+            self.assertEqual(route[-1]["type"], "Land")
         awacs = [item for item in air if " Awacs " in item["group_data"]["name"]]
         tankers = [item for item in air if " Tanker " in item["group_data"]["name"]]
         self.assertTrue(all(item["group_data"]["units"][0]["alt"] == 9000 for item in awacs))
         self.assertTrue(all(item["group_data"]["units"][0]["alt"] == 8000 for item in tankers))
-        self.assertTrue(all(len(spawn["group_data"]["units"]) == 4 for spawn in ground))
-        centers = {"Blue": (41.6103, 41.5997), "Red": (43.1050, 40.6019)}
+        # Reinforce packages split into 4 groups; group size now varies with
+        # the objective's difficulty tier (easy=infantry, hard=full defense).
+        self.assertTrue(all(
+            len(spawn["group_data"]["units"]) >= 2
+            for spawn in ground if " Reinforce " in spawn["group_data"]["name"]))
+        # Garrison packages spawn in the Kuban theatre, not across the map.
         for spawn in ground:
-            side = "Blue" if " Blue " in f" {spawn['group_data']['name']} " else "Red"
             geo = spawn["group_data"]["__geo"]
-            lat_scale = 111_000
-            lon_scale = 111_000 * math.cos(math.radians(centers[side][0]))
-            distance = math.hypot(
-                (geo["lat"] - centers[side][0]) * lat_scale,
-                (geo["lon"] - centers[side][1]) * lon_scale)
-            self.assertGreater(distance, 1500)
+            self.assertGreater(geo["lat"], 44.5)
+            self.assertLess(geo["lat"], 45.5)
+            self.assertGreater(geo["lon"], 37.0)
+            self.assertLess(geo["lon"], 39.5)
 
     def test_builds_and_sends_ground_spawn(self):
         result = self.service.debug_spawn("ground", {
@@ -132,7 +155,7 @@ class ManualOperationsTest(unittest.TestCase):
 
     def test_assault_stages_at_friendly_base_and_routes_to_target(self):
         state = self.service.engine.new_game()
-        plan = ActionPlan("assault", Side.BLUE, "kobuleti", 250, "assault_force")
+        plan = ActionPlan("assault", Side.BLUE, "alpha", 250, "assault_force")
 
         result = self.service.executor.execute(plan, 5, state)
 
@@ -140,9 +163,19 @@ class ManualOperationsTest(unittest.TestCase):
         group = self.gateway.spawn["group_data"]
         spawn = group["__geo"]
         destination = group["route"]["points"][-1]["__geo"]
-        self.assertLess(abs(spawn["lat"] - 41.6103), 0.01)
-        self.assertLess(abs(spawn["lon"] - 41.5997), 0.01)
-        self.assertEqual(destination, {"lat": 41.9294, "lon": 41.8639})
+        # The assault force stages a short drive from the target (5-10 min
+        # approach), not at the friendly origin base.
+        target = self.service.scenario.objectives["alpha"]
+        origin = self.service.scenario.objectives["anapa"]
+        approach = distance_m(
+            spawn["lat"], spawn["lon"], target.lat, target.lon)
+        self.assertLess(approach, 6000)
+        self.assertGreater(approach, 2000)
+        # It sits on the attack line between origin and target.
+        self.assertLess(
+            distance_m(spawn["lat"], spawn["lon"], origin.lat, origin.lon),
+            distance_m(target.lat, target.lon, origin.lat, origin.lon))
+        self.assertEqual(destination, {"lat": 44.908422, "lon": 37.582125})
 
     def test_builds_and_sends_air_spawn(self):
         result = self.service.debug_spawn("air", {

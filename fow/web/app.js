@@ -431,7 +431,31 @@ function renderGenerals() {
   const countdown = overview.generals.next_income_seconds;
   document.getElementById('general-economy').textContent =
     `Seeded symmetric policy · income every ${overview.generals.income_interval_seconds / 60} min` +
-    (countdown === null ? ' · campaign not running' : ` · next income and decision in ${countdown}s`);
+    (countdown === null ? ' · campaign not running' : ` · next income in ${countdown}s`);
+  renderDecisions();
+}
+
+function renderDecisions() {
+  const decisions = overview.generals.decisions || {};
+  for (const side of ['blue', 'red']) {
+    const body = document.querySelector(`#${side}-decisions tbody`);
+    if (!body) continue;
+    body.innerHTML = '';
+    for (const entry of (decisions[side] || []).slice().reverse()) {
+      const row = document.createElement('tr');
+      const support = (entry.live_support || []).join(', ') || 'none';
+      const reaction = [
+        entry.threatened?.length ? `threat: ${entry.threatened.join(', ')}` : '',
+        entry.lost?.length ? `lost: ${entry.lost.join(', ')}` : '',
+      ].filter(Boolean).join(' · ') || '—';
+      const choice = entry.choice
+        ? `${entry.choice.action} ${entry.choice.target}`
+        : 'saved up';
+      row.innerHTML = `<td>${entry.resources}</td><td>${entry.bucket}</td>` +
+        `<td>${support}</td><td>${reaction}</td><td>${choice}</td>`;
+      body.appendChild(row);
+    }
+  }
 }
 
 function render() {

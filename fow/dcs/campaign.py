@@ -1,6 +1,7 @@
 """Translate accepted campaign ground plans into idempotent DCS commands."""
 
 import json
+import math
 from pathlib import Path
 
 from scripts import dcs_structures
@@ -37,6 +38,9 @@ class CampaignExecutor:
         objective = self.scenario.objectives[plan.target]
         names = self.names_for(plan, sequence)
         name = names[0]
+        if objective.kind == "carrier" and plan.action not in ("cap", "awacs", "tanker"):
+            return {"name": name, "names": names, "status": "failed",
+                    "error": "Carrier objectives only host air actions"}
         snapshot = self.gateway.public_snapshot()
         if snapshot is None:
             return {"name": name, "status": "waiting", "error": "DCS status is unavailable"}
@@ -44,7 +48,10 @@ class CampaignExecutor:
         if set(names) <= active_names:
             return {"name": self.name_for(plan, sequence), "names": names, "status": "active", "error": None}
         asset = self.scenario.assets[plan.package]
-        template_id = asset.variants[plan.side]
+        # Garrison-style packages scale with the objective's difficulty tier:
+        # easy objectives get infantry, hard ones get armor plus SAMs.
+        tier = asset.tiers.get(objective.difficulty)
+        template_id = (tier or asset.variants)[plan.side]
         if template_id in self.air_catalog.get("presets", {}).get(side, {}):
             return self._execute_air(plan, sequence, template_id, objective, snapshot)
         template = self.catalog[side].get(template_id)
@@ -61,8 +68,16 @@ class CampaignExecutor:
             if not origins:
                 return {"name": name, "status": "failed", "error": "No friendly assault origin"}
             origin = sorted(origins, key=lambda item: item.id)[0]
+            # Spawn the assault force a short drive from the objective, along
+            # the attack line from the friendly origin. Driving the whole
+            # distance takes too long; a 5-10 minute approach keeps the push
+            # visible and leaves time for a counter-attack.
+            approach_m = 4000
+            bearing = dcs_structures.initial_bearing(
+                objective.lat, objective.lon, origin.lat, origin.lon)
             spawn_lat, spawn_lon = dcs_structures.offset_position(
-                origin.lat, origin.lon, north_m, east_m)
+                objective.lat, objective.lon, approach_m * math.cos(bearing),
+                approach_m * math.sin(bearing))
             destination = (objective.lat, objective.lon)
         chunks = [template["units"][index::4] for index in range(4)] if plan.action == "reinforce" else [template["units"]]
         replies = []

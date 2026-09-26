@@ -10,6 +10,11 @@ viewer, and generated mission remain unchanged as a working reference.
 - `web/` is the operational shell and debug command surface.
 - `scenarios/caucasus_pve.json` defines one shared action catalog with side-specific asset
   variants. Only Blue player slots are included in the initial PvE mission shell.
+- The objective graph copies Foothold 1.4.9's Kuban campaign: 15 objectives and 20 links at
+  Foothold's real coordinates (converted from the mission's DCS x/y). Blue holds Anapa and the
+  sea Carrier Group; Red holds Krymsk, Krasnodar, and the interior; Alpha, Charlie, and the
+  SAM Site start neutral. Carrier objectives reject ground actions and are invisible to Red
+  targeting. Player slots are at Anapa-Vityazevo.
 - `assets/foothold_pve_slots.json` records Foothold's 107-slot Blue PvE roster separately
   from placement. Its Anapa/Krymsk/FARP/carrier layout still needs mapping to this scenario.
 - `data/fow-runtime.json` is an atomic runtime checkpoint for the current campaign. It stores

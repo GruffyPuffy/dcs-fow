@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 from .campaign import ActionPlan, AlgorithmicGeneral, CampaignEngine, CampaignState, Side, load_scenario
 from .dcs import CampaignExecutor, DcsClient, DcsGateway, ManualOperations
+from .dcs.awareness import Awareness
 from .runtime import RuntimeCheckpoint
 
 
@@ -19,6 +20,7 @@ ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
 DEFAULT_SCENARIO = ROOT / "scenarios" / "caucasus_pve.json"
 DEFAULT_CHECKPOINT = ROOT.parent / "data" / "fow-runtime.json"
+SLOT_CATALOG = ROOT / "assets" / "slot_catalog.json"
 
 
 class FoWService:
@@ -30,6 +32,7 @@ class FoWService:
         self.dcs = dcs_gateway
         self.manual = ManualOperations(dcs_gateway)
         self.executor = CampaignExecutor(self.scenario, dcs_gateway)
+        self.awareness = Awareness()
         self._clock = clock
         self._wall_clock = wall_clock
         self._checkpoint = RuntimeCheckpoint(checkpoint_path) if checkpoint_path else None
@@ -37,7 +40,9 @@ class FoWService:
         self._campaign: CampaignState | None = None
         self._generals = self._new_generals()
         self._deployments: list[dict[str, Any]] = []
+        self._income_interval = self.scenario.economy.income_interval_seconds
         self._next_income_at: float | None = None
+        self._next_decision_at: float | None = None
         self._last_dcs_mission_id: str | None = None
         self._restore()
 
@@ -45,14 +50,54 @@ class FoWService:
         economy = self.scenario.economy
         return {
             side: AlgorithmicGeneral(
-                side, self.engine, economy.general_seed, economy.general_reserve)
+                side, self.engine, economy.general_seed, economy.general_reserve,
+                opening_endowment=(
+                    economy.red_opening_endowment if side == Side.RED else 0))
             for side in Side
         }
 
-    def new_game(self) -> dict[str, Any]:
+    def slot_unlocks(self) -> dict[str, str]:
+        """Base name -> controlling objective id for catalog slots."""
+        return self.scenario.mission_slot_unlocks()
+
+    def catalog_slot_names(self) -> dict[str, list[str]]:
+        """Slot names per base from the universal slot catalog."""
+        catalog = json.loads(SLOT_CATALOG.read_text())
+        names = {}
+        for base in catalog["bases"]:
+            entries = []
+            for entry in catalog["fixed_wing"] + catalog["helicopters"]:
+                for index, start in enumerate(entry["starts"]):
+                    name = f"FoW {base['name']} {entry['label']} {start.title()}"
+                    if index:
+                        name = f"{name} {index + 1}"
+                    entries.append(name)
+            names[base["name"]] = entries
+        return names
+
+    def _apply_slot_access(self) -> None:
+        """Open catalog slots at bases whose controlling objective is Blue-owned."""
+        if self._campaign is None:
+            return
+        unlocks = self.slot_unlocks()
+        names = self.catalog_slot_names()
+        enabled = []
+        for base, objective_id in unlocks.items():
+            objective_state = self._campaign.objectives.get(objective_id)
+            if objective_state and objective_state.owner == Side.BLUE:
+                enabled.extend(names.get(base, []))
+        if enabled:
+            self.dcs.set_slot_access(enabled, True)
+
+    def new_game(self, income_interval_seconds: int | None = None) -> dict[str, Any]:
         with self._lock:
             if self._campaign is not None:
                 return self._campaign.as_dict()
+            # Optional per-campaign override of the scenario's income interval,
+            # mainly for faster testing rounds.
+            self._income_interval = (max(30, int(income_interval_seconds))
+                                     if income_interval_seconds
+                                     else self.scenario.economy.income_interval_seconds)
             self._campaign = self.engine.new_game()
             self._generals = self._new_generals()
             self._deployments = []
@@ -64,24 +109,38 @@ class FoWService:
                     sequence = len(self._campaign.events)
                     jobs.append((plan, sequence))
                     self._deployments.append(self._deployment(plan, sequence))
-            self._next_income_at = self._clock() + self.scenario.economy.income_interval_seconds
+            self._next_income_at = self._clock() + self._income_interval
+            self._next_decision_at = self._clock() + AlgorithmicGeneral.decision_interval_seconds
+            self.engine.settle_opening_endowment(self._campaign)
             self._save_locked()
         self._execute_jobs(jobs)
+        self._apply_slot_access()
         with self._lock:
             return self._campaign.as_dict()
 
     def tick(self, now: float | None = None) -> None:
         now = self._clock() if now is None else now
         self._reconcile_deployments()
+        self._update_awareness()
         jobs = []
         with self._lock:
             if self._campaign is None or self._next_income_at is None:
                 return
             changed = False
+            # Income still accrues on the (configurable) income interval.
             while now >= self._next_income_at:
                 changed = True
                 self.engine.collect_income(self._campaign)
+                self._next_income_at += self._income_interval
+            # Generals decide on their own minute cadence, rate-limited by the
+            # spending bucket, so they can burst on reactions but must pace
+            # themselves afterwards.
+            if self._next_decision_at is None:
+                self._next_decision_at = now + AlgorithmicGeneral.decision_interval_seconds
+            while now >= self._next_decision_at:
+                elapsed = AlgorithmicGeneral.decision_interval_seconds
                 for side in Side:
+                    self._generals[side].accrue(elapsed)
                     choice = self._generals[side].choose_action(self._campaign)
                     if choice:
                         plan = self.engine.apply_action(
@@ -89,10 +148,52 @@ class FoWService:
                         sequence = len(self._campaign.events)
                         jobs.append((plan, sequence))
                         self._deployments.append(self._deployment(plan, sequence))
-                self._next_income_at += self.scenario.economy.income_interval_seconds
+                self._next_decision_at += AlgorithmicGeneral.decision_interval_seconds
+                changed = True
             if changed:
                 self._save_locked()
         self._execute_jobs(jobs)
+
+    def _update_awareness(self) -> None:
+        """Consume the latest DCS snapshot: tracks, kills, capture flips."""
+        snapshot = self.dcs.public_snapshot()
+        if snapshot is None:
+            return
+        self.awareness.update_tracks(snapshot)
+        with self._lock:
+            if self._campaign is None:
+                return
+            # Report live support flights (AWACS/tanker) to each general so it
+            # can replace losses and escort the AWACS.
+            for side in Side:
+                self._generals[side].live_support = {
+                    deployment["action"] for deployment in self._deployments
+                    if deployment["side"] == side.value
+                    and deployment["action"] in ("awacs", "tanker", "cap")
+                    and deployment["status"] == "active"
+                    and set(deployment.get("names", [deployment["name"]]))
+                    & {group.get("name") for group in snapshot.get("groups", [])
+                       if group.get("units")}
+                }
+            presence = self.awareness.objective_presence(self.scenario, snapshot)
+            flips = self.engine.evaluate_capture(self._campaign, presence)
+            # Reactive triggers: an objective we own with enemy ground present
+            # is threatened; one we just lost is a counter-attack target.
+            # Presence counts are keyed by DCS coalition id (1=red, 2=blue).
+            enemy = {Side.BLUE: Side.RED, Side.RED: Side.BLUE}
+            coalition_of = {Side.RED: 1, Side.BLUE: 2}
+            for side in Side:
+                general = self._generals[side]
+                enemy_coalition = coalition_of[enemy[side]]
+                general.threatened = {
+                    objective_id for objective_id, counts in presence.items()
+                    if self._campaign.objectives[objective_id].owner == side
+                    and counts.get(enemy_coalition, 0) > 0}
+                general.lost = {
+                    flip["objective"] for flip in flips if flip["to"] == enemy[side].value}
+            if flips:
+                self._apply_slot_access()
+                self._save_locked()
 
     def _deployment(self, plan, sequence: int) -> dict[str, Any]:
         return {
@@ -200,6 +301,8 @@ class FoWService:
             deployment["waypoints"] = self._mission_waypoints(
                 Side(deployment["side"]), deployment["action"], deployment["target"])
         self._last_dcs_mission_id = data.get("last_dcs_mission_id")
+        if isinstance(data.get("awareness"), dict):
+            self.awareness.restore(data["awareness"])
         self._next_income_at = self._clock() + max(
             0, float(data["next_income_at_epoch"]) - self._wall_clock())
         for side, general in self._generals.items():
@@ -219,9 +322,11 @@ class FoWService:
             "deployments": self._deployments,
             "next_income_at_epoch": self._wall_clock() + remaining,
             "last_dcs_mission_id": self._last_dcs_mission_id,
+            "awareness": self.awareness.state_dict(),
         })
 
     def overview(self) -> dict[str, Any]:
+        snapshot = self.dcs.public_snapshot()
         with self._lock:
             campaign = self._campaign.as_dict() if self._campaign else None
             legal_actions = {
@@ -236,17 +341,24 @@ class FoWService:
                 ]
                 for side in self._campaign.resources
             } if self._campaign else {"blue": [], "red": []}
+            presence = (self.awareness.objective_presence(self.scenario, snapshot)
+                        if snapshot and self._campaign else None)
         return {
             "campaign": campaign,
             "scenario": self.scenario.as_public_dict(),
             "legal_actions": legal_actions,
             "dcs": self.dcs.public_status(),
+            "presence": presence,
             "generals": {
                 "policy": "seeded_algorithm",
                 "reserve": self.scenario.economy.general_reserve,
-                "income_interval_seconds": self.scenario.economy.income_interval_seconds,
+                "income_interval_seconds": self._income_interval,
                 "next_income_seconds": max(0, round(self._next_income_at - self._clock()))
                 if self._next_income_at is not None else None,
+                "decisions": {
+                    side.value: general.decision_log[-20:]
+                    for side, general in self._generals.items()
+                },
             },
             "deployments": list(self._deployments),
             "persistence": {
@@ -339,10 +451,17 @@ def make_handler(service: FoWService):
                     self.send_json(400, {"ok": False, "error": "Invalid JSON"})
                     return
             if path == "/api/campaign/new":
-                if request not in ({}, {"scenario": service.scenario.id}):
+                interval = request.get("income_interval_seconds")
+                if request not in ({}, {"scenario": service.scenario.id}) and interval is None:
                     self.send_json(400, {"ok": False, "error": "Unknown scenario"})
                     return
-                self.send_json(201, {"ok": True, "campaign": service.new_game()})
+                if interval is not None and (not isinstance(interval, (int, float))
+                                             or isinstance(interval, bool) or interval < 30):
+                    self.send_json(400, {"ok": False, "error": "income_interval_seconds must be >= 30"})
+                    return
+                self.send_json(201, {"ok": True,
+                                     "campaign": service.new_game(
+                                         income_interval_seconds=interval)})
                 return
             try:
                 result = (service.debug_order(request) if path == "/api/orders" else

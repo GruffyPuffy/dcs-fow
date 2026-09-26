@@ -6,42 +6,80 @@
   "economy": {
     "income_interval_seconds": 300,
     "general_reserve": 500,
-    "general_seed": 149
+    "general_seed": 149,
+    "red_opening_endowment": 900
   },
   "air_stations": {
     "blue": {
-      "tanker": {"waypoints": [{"lat": 41.4500, "lon": 42.2500}, {"lat": 41.5500, "lon": 43.4000}], "on_station_seconds": 10800},
-      "awacs": {"waypoints": [{"lat": 41.2500, "lon": 42.6500}, {"lat": 41.3500, "lon": 43.8000}], "on_station_seconds": 14400}
+      "tanker": {"waypoints": [{"lat": 44.7500, "lon": 36.7000}, {"lat": 44.8500, "lon": 37.9000}], "on_station_seconds": 10800},
+      "awacs": {"waypoints": [{"lat": 44.6500, "lon": 36.9000}, {"lat": 44.7500, "lon": 38.1000}], "on_station_seconds": 14400}
     },
     "red": {
-      "tanker": {"waypoints": [{"lat": 43.6500, "lon": 40.4500}, {"lat": 43.6500, "lon": 41.6500}], "on_station_seconds": 10800},
-      "awacs": {"waypoints": [{"lat": 43.9500, "lon": 40.6500}, {"lat": 43.9500, "lon": 41.8500}], "on_station_seconds": 14400}
+      "tanker": {"waypoints": [{"lat": 45.2500, "lon": 38.6000}, {"lat": 45.2500, "lon": 39.8000}], "on_station_seconds": 10800},
+      "awacs": {"waypoints": [{"lat": 45.3500, "lon": 38.8000}, {"lat": 45.3500, "lon": 40.0000}], "on_station_seconds": 14400}
     }
   },
   "mission": {
-    "slot_roster": "foothold_pve",
+    "slot_roster": "caucasus_slots",
     "player_side": "blue",
     "coalitions": {
-      "blue": {"country": "USA", "airbases": ["Batumi"]},
-      "red": {"country": "Russia", "airbases": ["Gudauta"]}
+      "blue": {"country": "USA", "airbases": ["Anapa-Vityazevo"]},
+      "red": {"country": "Russia", "airbases": ["Krasnodar-Pashkovsky"]}
     },
     "client_slots": [
-      {"name": "FoW Hornet Air", "side": "blue", "aircraft": "FA-18C_hornet", "base": "Batumi", "unlock_objective": "batumi", "start": "air", "offset_m": [-10000, 5000], "altitude_m": 3000, "speed_mps": 200},
-      {"name": "FoW Hornet Runway", "side": "blue", "aircraft": "FA-18C_hornet", "base": "Batumi", "unlock_objective": "batumi", "start": "runway"},
-      {"name": "FoW Hornet Ramp", "side": "blue", "aircraft": "FA-18C_hornet", "base": "Batumi", "unlock_objective": "batumi", "start": "cold", "parking": "10"}
-    ]
+      {"name": "FoW Hornet Air", "side": "blue", "aircraft": "FA-18C_hornet", "base": "Anapa-Vityazevo", "unlock_objective": "anapa", "start": "air", "offset_m": [-10000, 5000], "altitude_m": 3000, "speed_mps": 200},
+      {"name": "FoW Hornet Runway", "side": "blue", "aircraft": "FA-18C_hornet", "base": "Anapa-Vityazevo", "unlock_objective": "anapa", "start": "runway"},
+      {"name": "FoW Hornet Ramp", "side": "blue", "aircraft": "FA-18C_hornet", "base": "Anapa-Vityazevo", "unlock_objective": "anapa", "start": "cold", "parking": "10"}
+    ],
+    "slot_unlocks": {
+      "Anapa-Vityazevo": "anapa",
+      "Krasnodar-Center": "krasnodar",
+      "Krasnodar-Pashkovsky": "krasnodar",
+      "Krymsk": "krymsk",
+      "Maykop-Khanskaya": "delta",
+      "Novorossiysk": "anapa",
+      "Gelendzhik": "anapa",
+      "Sochi-Adler": "charlie",
+      "Sukhumi-Babushara": "sukhumi",
+      "Gudauta": "gudauta",
+      "Senaki-Kolkhi": "senaki",
+      "Kobuleti": "kobuleti",
+      "Kutaisi": "kutaisi",
+      "Batumi": "batumi",
+      "Mineralnye Vody": "oilfields",
+      "Nalchik": "oilfields",
+      "Beslan": "oilfields",
+      "Mozdok": "oilfields",
+      "Tbilisi-Lochini": "factory",
+      "Vaziani": "factory",
+      "Soganlug": "factory"
+    }
   },
   "objectives": {
-    "batumi": {"label": "Batumi", "lat": 41.6103, "lon": 41.5997, "connections": ["kobuleti"], "initial_owner": "blue", "income": 20, "defense_positions": [{"lat": 41.633623, "lon": 41.639426}, {"lat": 41.580193, "lon": 41.632246}]},
-    "kobuleti": {"label": "Kobuleti", "lat": 41.9294, "lon": 41.8639, "connections": ["batumi", "kutaisi"], "income": 10, "defense_positions": [{"lat": 41.910762, "lon": 41.847462}, {"lat": 41.947537, "lon": 41.844495}]},
-    "kutaisi": {"label": "Kutaisi", "lat": 42.1767, "lon": 42.4826, "connections": ["kobuleti", "senaki"], "income": 15, "defense_positions": [{"lat": 42.16298, "lon": 42.45827}, {"lat": 42.19028, "lon": 42.45622}]},
-    "senaki": {"label": "Senaki-Kolkhi", "lat": 42.2408, "lon": 42.0478, "connections": ["kutaisi", "sukhumi"], "income": 15, "defense_positions": [{"lat": 42.220991, "lon": 42.033778}, {"lat": 42.255081, "lon": 42.024499}]},
-    "sukhumi": {"label": "Sukhumi-Babushara", "lat": 42.8582, "lon": 41.1281, "connections": ["senaki", "gudauta"], "income": 10, "defense_positions": [{"lat": 42.83946, "lon": 41.13338}, {"lat": 42.87304, "lon": 41.09901}]},
-    "gudauta": {"label": "Gudauta", "lat": 43.1050, "lon": 40.6019, "connections": ["sukhumi"], "initial_owner": "red", "income": 20, "defense_positions": [{"lat": 43.138665, "lon": 40.609629}, {"lat": 43.085112, "lon": 40.602958}]}
+    "anapa": {"label": "Anapa", "kind": "zone", "lat": 45.004517, "lon": 37.350113, "connections": ["alpha", "charlie"], "initial_owner": "blue", "income": 20, "defense_positions": [{"lat": 45.015297, "lon": 37.360277}, {"lat": 44.995534, "lon": 37.338678}]},
+    "carrier": {"label": "Carrier Group", "kind": "carrier", "lat": 44.542365, "lon": 37.497245, "connections": ["alpha"], "initial_owner": "blue", "income": 0, "defense_positions": [{"lat": 44.553145, "lon": 37.507328}, {"lat": 44.533382, "lon": 37.485902}]},
+    "alpha": {"label": "Alpha", "kind": "zone", "lat": 44.908422, "lon": 37.582125, "connections": ["anapa", "carrier", "bravo"], "initial_owner": null, "income": 5, "defense_positions": [{"lat": 44.919202, "lon": 37.592272}, {"lat": 44.899439, "lon": 37.57071}]},
+    "charlie": {"label": "Charlie", "kind": "zone", "lat": 45.102839, "lon": 37.592359, "connections": ["anapa", "bravo"], "initial_owner": null, "income": 5, "defense_positions": [{"lat": 45.113619, "lon": 37.602541}, {"lat": 45.093856, "lon": 37.580905}]},
+    "bravo": {"label": "Bravo", "kind": "zone", "difficulty": "easy", "lat": 44.969915, "lon": 37.765792, "connections": ["alpha", "charlie", "krymsk", "convoy", "oilfields"], "initial_owner": "red", "income": 5, "defense_positions": [{"lat": 44.980695, "lon": 37.77595}, {"lat": 44.960932, "lon": 37.754364}]},
+    "convoy": {"label": "Convoy", "kind": "zone", "difficulty": "easy", "lat": 45.078102, "lon": 37.823398, "connections": ["bravo"], "initial_owner": "red", "income": 5, "defense_positions": [{"lat": 45.088882, "lon": 37.833575}, {"lat": 45.069119, "lon": 37.811949}]},
+    "krymsk": {"label": "Krymsk", "kind": "zone", "difficulty": "hard", "lat": 44.967267, "lon": 37.993218, "connections": ["bravo", "oilfields", "radio", "factory", "delta", "samsite"], "initial_owner": "red", "income": 15, "defense_positions": [{"lat": 44.978047, "lon": 38.003375}, {"lat": 44.958284, "lon": 37.981791}]},
+    "oilfields": {"label": "Oil Fields", "kind": "zone", "difficulty": "normal", "lat": 45.187321, "lon": 37.974959, "connections": ["bravo", "krymsk"], "initial_owner": "red", "income": 10, "defense_positions": [{"lat": 45.198101, "lon": 37.985156}, {"lat": 45.178338, "lon": 37.963488}]},
+    "radio": {"label": "Radio Tower", "kind": "zone", "difficulty": "easy", "lat": 44.867468, "lon": 38.048395, "connections": ["krymsk"], "initial_owner": "red", "income": 5, "defense_positions": [{"lat": 44.878248, "lon": 38.058535}, {"lat": 44.858485, "lon": 38.036988}]},
+    "factory": {"label": "Factory", "kind": "zone", "difficulty": "normal", "lat": 44.851835, "lon": 38.433899, "connections": ["krymsk", "delta", "foxtrot", "echo"], "initial_owner": "red", "income": 10, "defense_positions": [{"lat": 44.862615, "lon": 38.444036}, {"lat": 44.842852, "lon": 38.422495}]},
+    "delta": {"label": "Delta", "kind": "zone", "difficulty": "normal", "lat": 45.013209, "lon": 38.380367, "connections": ["krymsk", "factory", "echo"], "initial_owner": "red", "income": 5, "defense_positions": [{"lat": 45.023989, "lon": 38.390533}, {"lat": 45.004226, "lon": 38.368931}]},
+    "samsite": {"label": "SAM Site", "kind": "zone", "lat": 45.144145, "lon": 38.304325, "connections": ["krymsk", "echo"], "initial_owner": null, "income": 5, "defense_positions": [{"lat": 45.154925, "lon": 38.314514}, {"lat": 45.135162, "lon": 38.292862}]},
+    "foxtrot": {"label": "Foxtrot", "kind": "zone", "difficulty": "normal", "lat": 44.939927, "lon": 38.873558, "connections": ["factory", "krasnodar"], "initial_owner": "red", "income": 5, "defense_positions": [{"lat": 44.950707, "lon": 38.883711}, {"lat": 44.930944, "lon": 38.862136}]},
+    "echo": {"label": "Echo", "kind": "zone", "difficulty": "normal", "lat": 45.05866, "lon": 38.613233, "connections": ["factory", "delta", "krasnodar", "samsite"], "initial_owner": "red", "income": 5, "defense_positions": [{"lat": 45.06944, "lon": 38.623407}, {"lat": 45.049677, "lon": 38.601788}]},
+    "krasnodar": {"label": "Krasnodar", "kind": "zone", "difficulty": "hard", "lat": 45.042943, "lon": 39.177911, "connections": ["foxtrot", "echo"], "initial_owner": "red", "income": 20, "defense_positions": [{"lat": 45.053723, "lon": 39.188082}, {"lat": 45.03396, "lon": 39.166469}]}
   },
   "assets": {
     "assault_force": {"label": "Combined-arms assault", "variants": {"blue": "fighting_force", "red": "fighting_force"}},
-    "garrison": {"label": "Defensive garrison", "variants": {"blue": "base_defense_force", "red": "base_defense_force"}},
+    "garrison": {"label": "Defensive garrison", "variants": {"blue": "base_defense_force", "red": "base_defense_force"},
+      "tiers": {
+        "easy": {"blue": "infantry_section", "red": "infantry_section"},
+        "normal": {"blue": "mechanized_infantry", "red": "mechanized_infantry"},
+        "hard": {"blue": "base_defense_force", "red": "base_defense_force"}
+      }},
     "cap_flight": {"label": "Combat air patrol", "variants": {"blue": "hornet_cap", "red": "mig29_cap"}},
     "cas_flight": {"label": "Close air support", "variants": {"blue": "a10c_cas", "red": "su25t_cas"}},
     "sead_flight": {"label": "Air-defense suppression", "variants": {"blue": "hornet_sead", "red": "su25t_sead"}},

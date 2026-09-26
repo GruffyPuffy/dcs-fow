@@ -7,45 +7,179 @@ from .models import ActionPlan, CampaignState, Side
 
 
 class AlgorithmicGeneral:
-    def __init__(self, side: Side, engine: CampaignEngine, seed: int, reserve: int):
+    # Decision cadence and spending rate limit. The general decides every
+    # decision_interval_seconds but may only spend spend_rate credits per
+    # second on average (bucket capacity = one big purchase), so it can buy
+    # immediately after saving up but must pace itself afterwards.
+    decision_interval_seconds = 60
+    spend_rate_per_second = 1.0
+    bucket_capacity = 300
+
+    def __init__(self, side: Side, engine: CampaignEngine, seed: int, reserve: int,
+                 opening_endowment: int = 0):
         self.side = side
         self.engine = engine
         self.reserve = reserve
+        # Pre-existing fortification budget: spent during the setup phase on top
+        # of starting resources, mirroring an enemy that has held the area for
+        # a long time. It does not carry over to the running campaign.
+        self.opening_endowment = opening_endowment
+        # Live support flights, reported by the service each tick. A general
+        # always re-buys a shot-down AWACS or tanker before anything else.
+        self.live_support: set[str] = set()
+        # Reactive triggers fed by the service: objectives under enemy attack
+        # (our garrison dying) and objectives we just lost. These get priority
+        # over the routine assault/reinforce roll.
+        self.threatened: set[str] = set()
+        self.lost: set[str] = set()
+        # Human-readable decision log for tuning: one entry per choose_action.
+        self.decision_log: list[dict] = []
+        self._bucket = self.bucket_capacity
         self._random = random.Random(seed + (1 if side == Side.BLUE else 2))
 
     def state_dict(self) -> dict:
-        return {"random_state": self._random.getstate()}
+        return {"random_state": self._random.getstate(),
+                "decision_log": self.decision_log[-50:],
+                "bucket": self._bucket}
 
     def restore(self, data: dict) -> None:
         def tuples(value):
             return tuple(tuples(item) for item in value) if isinstance(value, list) else value
 
         self._random.setstate(tuples(data["random_state"]))
+        self.decision_log = list(data.get("decision_log", []))
+        self._bucket = float(data.get("bucket", self.bucket_capacity))
+
+    def accrue(self, seconds: float) -> None:
+        """Refill the spending bucket up to one big purchase."""
+        self._bucket = min(self.bucket_capacity,
+                           self._bucket + self.spend_rate_per_second * seconds)
+
+    def _affordable(self, state: CampaignState, plans: list[ActionPlan],
+                    urgent: bool) -> list[ActionPlan]:
+        """Filter plans by resources and the spending bucket. Urgent reactions
+        (counter-attacks, support replacement) may overdraw the bucket."""
+        result = []
+        for plan in plans:
+            if state.resources[self.side] - plan.cost < self.reserve:
+                continue
+            if urgent or self._bucket >= plan.cost:
+                result.append(plan)
+        return result
 
     def opening_actions(self, state: CampaignState) -> list[ActionPlan]:
+        """Setup phase: garrison owned objectives with seeded-random intensity
+        and placement, then buy support flights while preserving the reserve."""
         plans = [plan for plan in self.engine.legal_actions(state, self.side)
-                 if plan.action in ("reinforce", "cap", "awacs", "tanker")]
-        selected_by_action = []
-        for action in ("reinforce", "cap", "awacs", "tanker"):
-            candidates = [plan for plan in plans if plan.action == action]
-            self._random.shuffle(candidates)
-            if candidates:
-                selected_by_action.append(candidates[0])
+                 if plan.action in ("reinforce", "cap", "awacs", "tanker")
+                 and self.scenario_objective_kind(plan.target) != "carrier"]
+        owned = [plan for plan in plans if plan.action == "reinforce"]
+        support = [plan for plan in plans if plan.action != "reinforce"]
+
         selected = []
+        # new_game() already credits the endowment into the state balance, so
+        # it must not be added again here (it is only a budgeting hint).
         available = state.resources[self.side]
-        for plan in selected_by_action:
-            if available - plan.cost < self.reserve:
-                continue
+        # Reserve budget for AWACS and tanker before garrisoning; CAP is optional.
+        support_cost = 0
+        for action in ("awacs", "tanker"):
+            candidates = [plan for plan in support if plan.action == action]
+            if candidates:
+                support_cost += candidates[0].cost
+        # Garrison budget: everything except the support flights, and the
+        # reserve must survive the whole opening, not just the garrison phase.
+        garrison_budget = available - support_cost - self.reserve
+        owned_plans = sorted(
+            owned,
+            key=lambda item: (-self.engine.scenario.objectives[item.target].income,
+                              item.target))
+        # Every owned objective gets at least one garrison; extra packages are
+        # seeded-random, weighted by difficulty.
+        for plan in owned_plans:
+            if garrison_budget < plan.cost:
+                break
             selected.append(plan)
             available -= plan.cost
+            garrison_budget -= plan.cost
+        for plan in owned_plans:
+            objective = self.engine.scenario.objectives[plan.target]
+            for _ in range(self._random.randint(1, self.garrison_weight(objective)) - 1):
+                if (available - plan.cost < self.reserve
+                        or garrison_budget < plan.cost):
+                    break
+                selected.append(plan)
+                available -= plan.cost
+                garrison_budget -= plan.cost
+        # Support flights: AWACS and tanker first, then CAP, budget permitting.
+        for action in ("awacs", "tanker", "cap"):
+            candidates = [plan for plan in support if plan.action == action]
+            self._random.shuffle(candidates)
+            if candidates and available - candidates[0].cost >= self.reserve:
+                selected.append(candidates[0])
+                available -= candidates[0].cost
         return selected
 
+    def scenario_objective_kind(self, target_id: str) -> str:
+        return self.engine.scenario.objectives[target_id].kind
+
+    def garrison_weight(self, objective) -> int:
+        """Random upper bound for garrison packages at an objective.
+
+        Difficulty tiers make some objectives cheap to take (easy) and others
+        a real fight (hard), so players of different skill levels find targets.
+        """
+        return {"easy": 1, "normal": 2, "hard": 3}[objective.difficulty]
+
     def choose_action(self, state: CampaignState) -> ActionPlan | None:
-        plans = [plan for plan in self.engine.legal_actions(state, self.side)
-                 if plan.action in ("assault", "reinforce")
-                 and state.resources[self.side] - plan.cost >= self.reserve]
-        if not plans:
+        all_plans = [plan for plan in self.engine.legal_actions(state, self.side)
+                     if plan.action in ("assault", "reinforce", "awacs", "tanker", "cap")
+                     and self.scenario_objective_kind(plan.target) != "carrier"]
+        # Reactive triggers first: counter-attack a lost objective or reinforce
+        # a threatened one. These may overdraw the bucket.
+        urgent = [plan for plan in all_plans
+                  if (plan.action == "assault" and plan.target in self.lost)
+                  or (plan.action == "reinforce" and plan.target in self.threatened)]
+        urgent = self._affordable(state, urgent, urgent=True)
+        # Support replacement is also urgent (standing rule): always airborne.
+        if "awacs" not in self.live_support or "tanker" not in self.live_support:
+            urgent += [plan for plan in all_plans
+                       if plan.action in ("awacs", "tanker")
+                       and plan.action not in self.live_support
+                       and state.resources[self.side] - plan.cost >= self.reserve]
+        routine = self._affordable(state, all_plans, urgent=False)
+        choice = self._choose(state, urgent, routine)
+        if choice:
+            self._bucket = max(0.0, self._bucket - choice.cost)
+        self.decision_log.append({
+            "resources": state.resources[self.side],
+            "bucket": round(self._bucket, 1),
+            "live_support": sorted(self.live_support),
+            "threatened": sorted(self.threatened),
+            "lost": sorted(self.lost),
+            "options": sorted({plan.action for plan in routine}),
+            "choice": {"action": choice.action, "target": choice.target} if choice else None,
+        })
+        return choice
+
+    def _choose(self, state: CampaignState, urgent: list[ActionPlan],
+                routine: list[ActionPlan]) -> ActionPlan | None:
+        if urgent:
+            return self._random.choice(urgent)
+        if not routine:
             return None
+        plans = routine
+        # Standing rules, in priority order. Support replacement is urgent and
+        # may overdraw the bucket: an AWACS or tanker must always be airborne.
+        for action in ("awacs", "tanker"):
+            if action in self.live_support:
+                continue
+            replacements = [plan for plan in plans if plan.action == action]
+            if replacements:
+                return self._random.choice(replacements)
+        if "awacs" in self.live_support and "cap" not in self.live_support:
+            escorts = [plan for plan in plans if plan.action == "cap"]
+            if escorts:
+                return self._random.choice(escorts)
         assaults = [plan for plan in plans if plan.action == "assault"]
         candidates = assaults if assaults and self._random.random() < 0.7 else plans
         return self._random.choice(candidates)
