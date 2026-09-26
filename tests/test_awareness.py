@@ -49,7 +49,10 @@ class AwarenessTest(unittest.TestCase):
             group("Air G", 1, krymsk.lat, krymsk.lon, units=2, category=0),
         ]}
         presence = self.awareness.objective_presence(scenario, snapshot)
-        self.assertEqual(presence["krymsk"], {1: 4, 2: 2})
+        # Weighted presence: count / (1 + distance_km). Red at the center
+        # weighs full 4; Blue 111 m out weighs slightly under 2.
+        self.assertAlmostEqual(presence["krymsk"][1], 4.0)
+        self.assertAlmostEqual(presence["krymsk"][2], 1.7997, places=2)
 
     def test_capture_flips_when_attacker_present_and_defenders_gone(self):
         scenario = self.engine.scenario

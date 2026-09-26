@@ -108,14 +108,14 @@ class CampaignEngineTest(unittest.TestCase):
     def test_owned_objectives_pay_symmetric_income(self):
         income = self.engine.collect_income(self.state)
         endowment = self.engine.scenario.economy.red_opening_endowment
-        # Base stipend (40) plus objective income. Red's factor (0.9):
-        # (85 + 40) * 0.9 = 112. Blue's 1.5 factor: (20 + 40) * 1.5 = 90.
-        # The stipend keeps an attacker spending while it holds little.
-        self.assertEqual(income, {Side.RED: 112, Side.BLUE: 90})
+        # Base stipend (40) plus objective income. Red's factor (1.1):
+        # (85 + 40) * 1.1 = 137. Blue's 0.8 factor: (20 + 40) * 0.8 = 48.
+        # The attacker opens with a war chest but slow income - spend it.
+        self.assertEqual(income, {Side.RED: 137, Side.BLUE: 48})
         blue_endowment = self.engine.scenario.economy.blue_opening_endowment
         self.assertEqual(self.state.resources,
-                         {Side.RED: 2000 + endowment + 112,
-                          Side.BLUE: 2000 + blue_endowment + 90})
+                         {Side.RED: 2000 + endowment + 137,
+                          Side.BLUE: 2000 + blue_endowment + 48})
         self.assertEqual(self.state.events[-1].kind, "income_collected")
 
 

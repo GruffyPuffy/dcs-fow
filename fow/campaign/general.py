@@ -12,7 +12,7 @@ class AlgorithmicGeneral:
     # second on average (bucket capacity = one big purchase), so it can buy
     # immediately after saving up but must pace itself afterwards.
     decision_interval_seconds = 60
-    spend_rate_per_second = 1.0
+    spend_rate_per_second = 1.5
     bucket_capacity = 300
     # Max live ground groups per side. Protects the DCS server from runaway
     # spawning; the general stops buying ground forces at the cap.
@@ -21,6 +21,11 @@ class AlgorithmicGeneral:
     # assaults on one zone is a steamroll, not an operation - and it hammers
     # the DCS server with simultaneous large ground groups.
     max_assaults_per_objective = 1
+    # Max live air deployments per side, and per mission type. CAP used to
+    # respawn endlessly because the escort rule only checked "is any CAP up";
+    # now the general stops buying at the caps and diversifies instead.
+    max_air_deployments = 8
+    max_per_air_type = 2
 
     def __init__(self, side: Side, engine: CampaignEngine, seed: int, reserve: int,
                  opening_endowment: int = 0):
@@ -46,6 +51,10 @@ class AlgorithmicGeneral:
         # active enemy assault deployments. Drives counter-doctrine: strike
         # the staging force, CAP over the fight, counter-assault the source.
         self.enemy_assaults: set[str] = set()
+        # Objectives with CONFIRMED enemy ground troops (weighted presence
+        # > 0), fed by the service from awareness. CAS strikes these - troops
+        # in the open, not empty zones.
+        self.confirmed_enemy_troops: set[str] = set()
         # Player requests awaiting approval (e.g. JTAC support). The general
         # approves them on the normal cadence if the budget allows.
         self.pending_requests: list[dict] = []
@@ -54,6 +63,11 @@ class AlgorithmicGeneral:
         # Objectives already under one of our live assaults, fed by the
         # service. Limits stacking multiple assault packages on one target.
         self.live_assault_targets: set[str] = set()
+        # Live air deployment counts, fed by the service: total and per
+        # action type (cap/cas/sead/strike/awacs/tanker). Enforce the air
+        # caps so the general diversifies instead of stacking CAPs.
+        self.live_air_total = 0
+        self.live_air_by_type: dict[str, int] = {}
         # Set when the next CAP purchase is a free AWACS escort (doctrine).
         self.free_escort = False
         # Human-readable decision log for tuning: one entry per choose_action.
@@ -85,13 +99,15 @@ class AlgorithmicGeneral:
         (counter-attacks, support replacement) may overdraw the bucket.
         Assaults are the point of the game: they only need a small token
         balance (100), otherwise the reserve locks both sides into passivity.
+        Offensive air (strike/SEAD/CAS) is the same kind of push, so it gets
+        the same token floor instead of the full reserve.
         Reinforcing what we own is maintenance (50 floor). Other expensive
         actions keep the reserve as a soft floor."""
         result = []
         for plan in plans:
             if plan.action == "reinforce":
                 floor = 50
-            elif plan.action == "assault":
+            elif plan.action in ("assault", "strike", "sead", "cas"):
                 floor = 100
             else:
                 floor = self.reserve if plan.cost > 150 else self.reserve // 2
@@ -107,7 +123,8 @@ class AlgorithmicGeneral:
         No scripted opening moves: the opening endowment simply gives the
         side the budget to assault right away if its doctrine rolls that way."""
         plans = [plan for plan in self.engine.legal_actions(state, self.side)
-                 if plan.action in ("reinforce", "cap", "awacs", "tanker")
+                 if plan.action in ("reinforce", "cap", "awacs", "tanker",
+                                    "assault")
                  and self.scenario_objective_kind(plan.target) != "carrier"]
         owned = [plan for plan in plans if plan.action == "reinforce"]
         support = [plan for plan in plans if plan.action != "reinforce"]
@@ -131,6 +148,17 @@ class AlgorithmicGeneral:
             owned,
             key=lambda item: (-self.engine.scenario.objectives[item.target].income,
                               item.target))
+        # Opening blitz: the attacker spends the war chest on assaults on
+        # adjacent neutral objectives BEFORE buying CAP - the war starts with
+        # ground pushing, not an air umbrella. Emergent: this is just budget
+        # priority, the assault roll stays the same in decision rounds.
+        opening_assaults = [plan for plan in plans if plan.action == "assault"]
+        self._random.shuffle(opening_assaults)
+        for plan in opening_assaults[:2]:
+            if available - plan.cost < 0:
+                break
+            selected.append(plan)
+            available -= plan.cost
         # Every owned objective gets at least one garrison; extra packages are
         # seeded-random, weighted by difficulty.
         for plan in owned_plans:
@@ -148,9 +176,9 @@ class AlgorithmicGeneral:
                 selected.append(plan)
                 available -= plan.cost
                 garrison_budget -= plan.cost
-        # Support flights: AWACS and tanker first, then CAP, budget permitting.
-        # AWACS/tanker are standing doctrine (blind and unfuelled is worse than
-        # a low balance), so they may draw into the reserve; CAP may not.
+        # Support flights: AWACS and tanker first (standing doctrine - blind
+        # and unfuelled is worse than a low balance), then CAP. The attacker
+        # opens with the war chest, not the air umbrella: assaults come first.
         for action in ("awacs", "tanker", "cap"):
             candidates = [plan for plan in support if plan.action == action]
             self._random.shuffle(candidates)
@@ -179,16 +207,47 @@ class AlgorithmicGeneral:
         if self.live_ground_groups >= self.max_ground_groups:
             all_plans = [plan for plan in all_plans
                          if plan.action not in ("assault", "reinforce")]
-        # Assault stacking cap: one assault package per objective at a time.
-        # A second wave is bought only after the first resolves (capture or
-        # destruction), keeping pushes readable and the server load sane.
+        # Assault stacking cap: one assault package per objective at a time,
+        # EXCEPT when the objective is contested (a fight is in progress).
+        # Fresh waves may join a winning fight - that is how you penetrate a
+        # defense - but a quiet objective never stacks multiple assaults.
+        contested = {objective_id for objective_id, state
+                     in state.objectives.items()
+                     if state.contested_since is not None}
         all_plans = [plan for plan in all_plans
                      if plan.action != "assault"
-                     or plan.target not in self.live_assault_targets]
-        # Reactive triggers first: counter-attack a lost objective or reinforce
-        # a threatened one. These may overdraw the bucket.
+                     or plan.target not in self.live_assault_targets
+                     or plan.target in contested]
+        # CAS needs troops, not empty ground: only target objectives where
+        # enemy presence is confirmed (weighted presence > 0 from awareness).
+        all_plans = [plan for plan in all_plans
+                     if plan.action != "cas"
+                     or plan.target in self.confirmed_enemy_troops]
+        # Air caps: stop buying aircraft at the total cap, and stop buying a
+        # type at its per-type cap. This forces diversity - a side at its CAP
+        # limit buys strike/CAS/SEAD or nothing, never more CAP.
+        if self.live_air_total >= self.max_air_deployments:
+            all_plans = [plan for plan in all_plans
+                         if plan.action not in ("cap", "cas", "sead", "strike",
+                                                "awacs", "tanker")]
+        else:
+            all_plans = [
+                plan for plan in all_plans
+                if plan.action not in ("cap", "cas", "sead", "strike",
+                                       "awacs", "tanker")
+                or self.live_air_by_type.get(plan.action, 0)
+                < self.max_per_air_type]
+        # Reactive triggers first: counter-attack a lost objective, reinforce
+        # a threatened one, or recapture a cut-off objective (its income is
+        # not flowing - the supply line must be restored). May overdraw bucket.
+        cut_off = {objective_id for objective_id, objective_state
+                   in state.objectives.items()
+                   if objective_state.owner == self.side
+                   and not self.engine.connected_to_home(
+                       state, self.side, objective_id)}
         urgent = [plan for plan in all_plans
-                  if (plan.action == "assault" and plan.target in self.lost)
+                  if (plan.action == "assault"
+                      and (plan.target in self.lost or plan.target in cut_off))
                   or (plan.action == "reinforce" and plan.target in self.threatened)]
         # Counter-doctrine: an enemy assault in progress gets an armed response
         # - strike the attacking force, CAP over the fight, or counter-assault
@@ -253,28 +312,33 @@ class AlgorithmicGeneral:
             escorts = [plan for plan in plans if plan.action == "cap"]
             if escorts:
                 return self._random.choice(escorts)
-        # Escort rule: a live tanker also deserves a CAP when none is up.
-        if "tanker" in self.live_support and "cap" not in self.live_support:
-            escorts = [plan for plan in plans if plan.action == "cap"]
-            if escorts:
-                return self._random.choice(escorts)
-        # Free escort: one CAP per AWACS is doctrine, not an expense. If the
-        # AWACS is live but the general has no CAP budgeted, buy one anyway
-        # (the service refunds the cost via the free_escort flag).
-        if "awacs" in self.live_support and "cap" not in self.live_support:
+        # Free escort: one CAP per airborne AWACS or tanker is doctrine, not
+        # an expense. High-value support assets (a MiG just hunted the tanker)
+        # get a fighter escort bought for them; the service refunds the cost
+        # via the free_escort flag.
+        if ("awacs" in self.live_support or "tanker" in self.live_support) \
+                and "cap" not in self.live_support:
             escorts = [plan for plan in plans if plan.action == "cap"]
             if escorts:
                 self.free_escort = True
                 return escorts[0]
-        # Air-power doctrine: 30% of rounds launch an air mission instead of
+        # Air-power doctrine: 40% of rounds launch an air mission instead of
         # a ground move. Deep missions (strike/SEAD) are preferred over CAS
         # so players actually see them; SEAD targets objectives with known
         # SAMs (hard ones), strike/CAS hit enemy-held objectives - softening
         # before an assault.
-        if self._random.random() < 0.3:
+        if self._random.random() < 0.4:
             air_missions = [plan for plan in plans
                             if plan.action in ("sead", "strike", "cas")]
             if air_missions:
+                # Strike attraction: objectives that would cut enemy income
+                # (hubs like Krymsk) draw the deep missions. Weighted, not
+                # deterministic - 70% pick the highest-value target.
+                if self._random.random() < 0.7:
+                    air_missions.sort(
+                        key=lambda plan: -self.engine.income_value(
+                            state, self.side, plan.target))
+                    return air_missions[0]
                 # Prefer SEAD against hard (SAM-heavy) objectives.
                 sead = [plan for plan in air_missions
                         if plan.action == "sead"

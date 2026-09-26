@@ -17,7 +17,7 @@ Status: as of 2026-09-26. All values live in `fow/scenarios/caucasus_pve.json`
   Red 900 (pre-existing fortifications), Blue 500 (war chest so the underdog
   can push early).
 - Token bucket: generals decide every 60 s; bucket capacity 300, refill
-  1 credit/s. Urgent reactions (threatened/lost objectives, support
+  1.5 credit/s. Urgent reactions (threatened/lost objectives, support
   replacement, counter-doctrine) may overdraw the bucket — war does not wait
   for payday.
 
@@ -62,15 +62,17 @@ Status: as of 2026-09-26. All values live in `fow/scenarios/caucasus_pve.json`
   anything else (ignores the reserve floor — blind/unfuelled is worse than
   broke). One free CAP escort per airborne AWACS (service refunds the cost).
   Tanker also gets CAP escort priority.
-- **Air doctrine**: 30% of routine rounds launch an air mission; deep
+- **Air doctrine**: 40% of routine rounds launch an air mission; deep
   missions (strike/SEAD) preferred 70% over CAS; SEAD prefers hard
-  (SAM-heavy) objectives.
+  (SAM-heavy) objectives. Offensive air (strike/SEAD/CAS) uses the same
+  token floor as assaults (100) — it is a push, not a luxury.
 - **Ground doctrine**: 70% of routine rounds prefer assaults when available.
 - **Counter-doctrine**: active enemy assaults trigger urgent strike/CAS/CAP
   or a counter-assault on the contested objective.
 - **Reserve floors**: expensive actions keep the side reserve (Blue keeps
   half of it — the underdog must push); cheap actions (≤150) need only half
-  the reserve; reinforce needs 50; assault needs 100.
+  the reserve; reinforce needs 50; assault and offensive air (strike/SEAD/
+  CAS) need 100.
 - **Failed deployments refund** their cost — a bad spawn spot must not burn
   budget.
 - **No scripted behavior**: outcomes emerge from doctrine weights + economy.

@@ -287,6 +287,18 @@ function unitDetailsHtml(group, unit, side, kind, groupHeader = null) {
   const headingDeg = Number.isFinite(unit.heading) ? Math.round(unit.heading * 180 / Math.PI) : null;
   const roeLabels = {open_fire: 'OPEN FIRE', return_fire: 'RETURN FIRE', weapon_hold: 'WEAPONS HOLD'};
   const roe = roeLabels[group.roe] || (isAir ? '—' : 'unknown');
+  // Mission order: what the general tasked this flight to do, and where.
+  const deployment = (typeof overview !== 'undefined' && overview?.deployments || [])
+    .find(item => item.name === group.name || (item.names || []).includes(group.name));
+  const orderLabels = {cap: 'CAP', cas: 'CAS', sead: 'SEAD', strike: 'STRIKE',
+                       awacs: 'AWACS patrol', tanker: 'Tanker orbit',
+                       assault: 'Ground assault', reinforce: 'Reinforce',
+                       jtac: 'JTAC'};
+  const order = deployment ? (orderLabels[deployment.action] || deployment.action) : null;
+  const orderTarget = deployment ? (overview.scenario.objectives.find(o => o.id === deployment.target)?.label || deployment.target) : null;
+  const retasked = deployment?.retasked_for
+    ? (overview.scenario.objectives.find(o => o.id === deployment.retasked_for)?.label || deployment.retasked_for)
+    : null;
   const rows = [
     `<tr><th>Type</th><td>${escapeHtml(unit.type || '—')}</td></tr>`,
     `<tr><th>Group</th><td>${escapeHtml(group.name)}</td></tr>`,
@@ -297,6 +309,7 @@ function unitDetailsHtml(group, unit, side, kind, groupHeader = null) {
   if (headingDeg !== null) rows.push(`<tr><th>Heading</th><td>${headingDeg}°</td></tr>`);
   if (Number.isFinite(unit.fuel)) rows.push(`<tr><th>Fuel</th><td>${Math.round(unit.fuel * 100)}%</td></tr>`);
   if (unit.callsign) rows.push(`<tr><th>Callsign</th><td>${escapeHtml(unit.callsign)}</td></tr>`);
+  if (order) rows.push(`<tr><th>Order</th><td>${escapeHtml(order)} - ${escapeHtml(orderTarget || '')}${retasked ? ` (redirected: ${escapeHtml(retasked)})` : ''}</td></tr>`);
   rows.push(`<tr><th>ROE</th><td>${roe}</td></tr>`);
   rows.push(`<tr><th>Position</th><td>${unit.lat.toFixed(5)}, ${unit.lon.toFixed(5)}</td></tr>`);
   const header = groupHeader

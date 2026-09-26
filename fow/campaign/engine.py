@@ -124,15 +124,15 @@ class CampaignEngine:
             current = state.objectives[objective_id]
             owner = current.owner
             attacker = None
-            if owner == Side.RED and counts[2] > 0 and counts[1] == 0:
+            # Zone control is weighted power, not headcount: a tank platoon
+            # at the center outweighs an infantry section at the edge, but
+            # enough soldiers contest a tank. A side controls the zone when
+            # its weight dominates by a clear margin (2x) - a knife-edge
+            # balance keeps the fight contested.
+            if counts[2] > counts[1] * 2:
                 attacker = Side.BLUE
-            elif owner == Side.BLUE and counts[1] > 0 and counts[2] == 0:
+            elif counts[1] > counts[2] * 2:
                 attacker = Side.RED
-            elif owner is None:
-                if counts[1] > 0 and counts[2] == 0:
-                    attacker = Side.RED
-                elif counts[2] > 0 and counts[1] == 0:
-                    attacker = Side.BLUE
             if attacker is None or attacker == owner:
                 # Fight is over or never started: clear any stale contest.
                 if current.contested_since is not None:
@@ -168,10 +168,62 @@ class CampaignEngine:
             ))
         return flips
 
+    # Supply hubs: income only flows along an unbroken path of same-side
+    # objectives back to the side's home base. Cut-off objectives stop
+    # paying - taking Krymsk starves Red's western wing, so hubs attract
+    # strikes and recapturing a cut link becomes urgent.
+    home_objectives = {Side.BLUE: "anapa", Side.RED: "krasnodar"}
+
+    def connected_to_home(self, state: CampaignState, side: Side,
+                          objective_id: str) -> bool:
+        """True if objective_id has an unbroken same-side path to home."""
+        home = self.home_objectives[side]
+        if objective_id == home:
+            return True
+        seen = {objective_id}
+        frontier = [objective_id]
+        while frontier:
+            current = frontier.pop()
+            for neighbor in self.scenario.objectives[current].connections:
+                if neighbor == home:
+                    return True
+                if (neighbor in seen
+                        or state.objectives[neighbor].owner != side):
+                    continue
+                seen.add(neighbor)
+                frontier.append(neighbor)
+        return False
+
+    def income_value(self, state: CampaignState, side: Side,
+                     objective_id: str) -> int:
+        """Income Blue/Red would GAIN (or deny the enemy) by taking this
+        objective: its own income plus every enemy objective that would be
+        cut off from home. Hubs like Krymsk score high - they attract
+        strikes and assaults without any scripting."""
+        objective = self.scenario.objectives[objective_id]
+        enemy = Side.RED if side == Side.BLUE else Side.BLUE
+        value = objective.income
+        for other_id, other in self.scenario.objectives.items():
+            if other_id == objective_id:
+                continue
+            other_state = state.objectives[other_id]
+            if other_state.owner != enemy:
+                continue
+            # Would taking objective_id cut 'other' from enemy home?
+            # Simulate: temporarily flip ownership.
+            saved = state.objectives[objective_id]
+            state.objectives[objective_id] = replace(saved, owner=side)
+            cut = not self.connected_to_home(state, enemy, other_id)
+            state.objectives[objective_id] = saved
+            if cut:
+                value += self.scenario.objectives[other_id].income
+        return value
+
     def collect_income(self, state: CampaignState) -> dict[Side, int]:
         income = {side: self.scenario.economy.base_income for side in Side}
         for objective_id, objective_state in state.objectives.items():
-            if objective_state.owner:
+            if objective_state.owner and self.connected_to_home(
+                    state, objective_state.owner, objective_id):
                 income[objective_state.owner] += self.scenario.objectives[objective_id].income
         # Side multipliers create the campaign's tipping point: Red earns less
         # per objective, so Blue overtakes as it captures territory.
@@ -209,5 +261,15 @@ class CampaignEngine:
                 return False
         if action.requires_connection:
             target = self.scenario.objectives[target_id]
+            # Air missions (strike/SEAD/CAS) have the range to reach one
+            # step past the ground front line - that is how deep air power
+            # works IRL. Ground actions (assault) still need a bordering
+            # friendly objective.
+            if action.id in ("strike", "sead", "cas"):
+                return any(
+                    state.objectives[neighbor].owner == side
+                    or any(state.objectives[hop].owner == side
+                           for hop in self.scenario.objectives[neighbor].connections)
+                    for neighbor in target.connections)
             return any(state.objectives[neighbor].owner == side for neighbor in target.connections)
         return True

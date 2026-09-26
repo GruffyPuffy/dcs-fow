@@ -6,6 +6,8 @@ from pathlib import Path
 
 from scripts import dcs_structures
 
+from dataclasses import replace
+
 from ..campaign.models import ActionPlan, CampaignState
 from ..campaign.scenario import Scenario
 from .client import DcsGateway
@@ -181,6 +183,13 @@ class CampaignExecutor:
         if template is None:
             return {"name": name, "names": [name], "status": "failed", "error": f"Missing air template {template_id}"}
         station = self.scenario.air_stations.get(plan.side, {}).get(plan.action)
+        # Strike/SEAD/CAS fly TO the target objective - travel points toward
+        # the troops/bases, no orbit. The attack task (AttackGroup/Bombing)
+        # does the work on arrival; the scenario station only supplies the
+        # on-station time for the route's stop condition.
+        if plan.action in ("strike", "sead", "cas"):
+            lat, lon = objective.lat, objective.lon
+            station = replace(station, waypoints=((lat, lon), (lat, lon))) if station else None
         mission_lat, mission_lon = station.waypoints[0] if station else (objective.lat, objective.lon)
         # Combat flights (cap/cas/sead/strike) launch from the nearest friendly
         # airbase: they taxi, take off, and fly to station - visible, attackable
@@ -237,7 +246,8 @@ class CampaignExecutor:
         spawn_data = dcs_structures.build_base_start_data(
             side, preset, template, name, base_lat, base_lon,
             station.waypoints[0], station.waypoints[1],
-            station.on_station_seconds, airbase["name"])
+            station.on_station_seconds, airbase["name"],
+            ground_attack=plan.action in ("strike", "sead", "cas"))
         try:
             reply = self.gateway.spawn_group(spawn_data)
         except (OSError, RuntimeError, ValueError) as error:

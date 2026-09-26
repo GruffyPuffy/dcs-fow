@@ -9,9 +9,9 @@
     "general_seed": 149,
     "base_income": 40,
     "red_opening_endowment": 900,
-    "blue_opening_endowment": 500,
-    "red_income_factor": 0.9,
-    "blue_income_factor": 1.5
+    "blue_opening_endowment": 1500,
+    "red_income_factor": 1.1,
+    "blue_income_factor": 0.8
   },
   "air_stations": {
     "blue": {
@@ -696,7 +696,7 @@
     "cas": {
       "label": "Close air support",
       "cost": 200,
-      "target_ownership": "enemy",
+      "target_ownership": "not_friendly",
       "requires_connection": true,
       "package": "cas_flight"
     },

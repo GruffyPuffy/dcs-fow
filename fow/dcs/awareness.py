@@ -83,11 +83,20 @@ class Awareness:
                 live_units[name] = len(group.get("units", []))
         return live_units
 
-    def objective_presence(self, scenario, snapshot: dict[str, Any]) -> dict[str, dict[str, int]]:
-        """Count ground units of each coalition near each objective."""
-        presence: dict[str, dict[str, int]] = {
-            objective_id: {1: 0, 2: 0} for objective_id in scenario.objectives}
-        radius = 3500.0
+    # Zone control radius: only units this close to the objective center
+    # contest it. A group parked 1.5 km out is "observed nearby" (intel uses
+    # the wider awareness radius), not "holding the zone".
+    zone_radius = 1500.0
+
+    def objective_presence(self, scenario, snapshot: dict[str, Any]) -> dict[str, dict[str, float]]:
+        """Weighted ground presence per coalition near each objective.
+
+        Weight = unit count / (1 + distance_km). A tank platoon at the zone
+        center outweighs an infantry section at the edge; a few soldiers on
+        the border do not contest a tank in the middle, but enough of them
+        do. Capture logic compares these weights."""
+        presence: dict[str, dict[str, float]] = {
+            objective_id: {1: 0.0, 2: 0.0} for objective_id in scenario.objectives}
         for group in snapshot.get("groups", []):
             if group.get("category") != 2:  # ground units only
                 continue
@@ -98,12 +107,15 @@ class Awareness:
             if not (NumberOk(lead.get("lat")) and NumberOk(lead.get("lon"))):
                 continue
             for objective_id, objective in scenario.objectives.items():
-                if distance_m(lead["lat"], lead["lon"],
-                              objective.lat, objective.lon) <= radius:
-                    coalition = group.get("coalition")
-                    if coalition in (1, 2):
-                        presence[objective_id][coalition] += len(units)
-                    break
+                distance = distance_m(lead["lat"], lead["lon"],
+                                      objective.lat, objective.lon)
+                if distance > self.zone_radius:
+                    continue
+                coalition = group.get("coalition")
+                if coalition in (1, 2):
+                    weight = len(units) / (1.0 + distance / 1000.0)
+                    presence[objective_id][coalition] += weight
+                break
         return presence
 
 

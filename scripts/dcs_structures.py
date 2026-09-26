@@ -216,6 +216,47 @@ def build_air_spawn_data(side: str, preset_config: dict, group_template: dict | 
     }
 
 
+def build_strike_task(target_lat: float, target_lon: float,
+                      target_group: str | None = None) -> dict:
+    """Build a DCS task that attacks ground troops at a position.
+
+    Prefers AttackGroup on a confirmed live group (precise, re-attacks until
+    the group is destroyed); falls back to Bombing on the coordinates.
+    DCS AI repeats attack runs until the target is destroyed or weapons/fuel
+    state forces it off target - then the caller RTBs the flight.
+    """
+    if target_group:
+        return {
+            'id': 'ComboTask',
+            'params': {'tasks': [{
+                'id': 'AttackGroup',
+                'params': {
+                    'groupId': {'__ref': 'group_id', 'name': target_group},
+                    'weaponType': 'Auto',
+                    'attackQtyLimit': False,
+                    'altitudeEnabled': False,
+                    'directionEnabled': False,
+                    'expend': 'All',
+                    'unitQtyDef': 1,
+                },
+            }]},
+        }
+    return {
+        'id': 'ComboTask',
+        'params': {'tasks': [{
+            'id': 'Bombing',
+            'params': {
+                'weaponType': 'Auto',
+                'expend': 'All',
+                'attackQtyLimit': False,
+                'directionEnabled': False,
+                'x': {'__geo': {'lat': target_lat, 'lon': target_lon}},
+                'y': {'__geo': {'lat': target_lat, 'lon': target_lon}},
+            },
+        }]},
+    }
+
+
 def build_route_update(mission_type: str, current_lat: float, current_lon: float,
                       mission_lat: float, mission_lon: float, 
                       altitude_m: int, speed_mps: int) -> dict:
@@ -374,7 +415,8 @@ def build_ground_route(current_lat: float, current_lon: float, lat: float, lon: 
 def build_base_start_data(side: str, preset_config: dict, group_template: dict | None,
                           group_name: str, base_lat: float, base_lon: float,
                           station_start: tuple[float, float], station_end: tuple[float, float],
-                          on_station_seconds: int, base_name: str) -> dict:
+                          on_station_seconds: int, base_name: str, *,
+                          ground_attack: bool = False) -> dict:
     """Build a cold-start air group on a runway with a full mission route:
     takeoff -> station racetrack (timed) -> land back at the launch base.
     """
@@ -409,10 +451,29 @@ def build_base_start_data(side: str, preset_config: dict, group_template: dict |
         unit['__geo'] = {'lat': base_lat, 'lon': base_lon}
     altitude = preset_config['altitude_m']
     speed = preset_config['speed_mps']
-    mission_task = _build_mission_task(
-        preset_config['mission_type'], altitude, speed,
-        orbit_pattern='Race-Track', stop_after_seconds=on_station_seconds)
-    points = group_data['route'].get('points', [])
+    mission_type = preset_config['mission_type']
+    if ground_attack or mission_type in ('CAS', 'STRIKE', 'SEAD'):
+        # Ground-attack route: no timed racetrack. Fly to the target, run
+        # attack passes until the target is destroyed or weapons/fuel are
+        # out, then continue to the RTB landing point.
+        mission_task = {
+            'id': 'ComboTask',
+            'params': {'tasks': [{
+                'id': 'EngageTargets',
+                'params': {'targetTypes': ['Ground Units'], 'priority': 0},
+            }]},
+        }
+        points = [
+            {}, {}, {},
+        ]
+    else:
+        mission_task = _build_mission_task(
+            mission_type, altitude, speed,
+            orbit_pattern='Race-Track', stop_after_seconds=on_station_seconds)
+        points = group_data['route'].get('points', [])
+    if isinstance(points, dict):
+        points = [points.get(str(i + 1), {}) for i in range(max(int(k) for k in points.keys() if str(k).isdigit()))]
+        group_data['route']['points'] = points
     if isinstance(points, dict):
         points = [points.get(str(i + 1), {}) for i in range(max(int(k) for k in points.keys() if str(k).isdigit()))]
         group_data['route']['points'] = points

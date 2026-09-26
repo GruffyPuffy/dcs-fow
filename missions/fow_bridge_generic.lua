@@ -288,6 +288,11 @@ local function resolve(value, depth)
         if not airbase then error('AIRBASE_NOT_FOUND') end
         return airbase:getID()
     end
+    if value.__ref == 'group_id' then
+        local group = Group.getByName(value.name)
+        if not group or not group:isExist() then error('GROUP_NOT_FOUND') end
+        return group:getID()
+    end
     local geo = value.__geo
     if geo then
         local point = coord.LLtoLO(geo.lat, geo.lon)

@@ -225,14 +225,20 @@ class FoWService:
             # can replace losses and escort the AWACS, plus live ground group
             # counts for the force cap.
             for side in Side:
+                # A support flight counts as live only while AIRBORNE. A
+                # landed AWACS (station time over, shot on approach) sitting
+                # on the ramp must not block its replacement.
+                airborne_names = {
+                    group.get("name") for group in snapshot.get("groups", [])
+                    if group.get("units") and any(
+                        (unit.get("y") or 0) > 100 for unit in group["units"])}
                 self._generals[side].live_support = {
                     deployment["action"] for deployment in self._deployments
                     if deployment["side"] == side.value
                     and deployment["action"] in ("awacs", "tanker", "cap")
                     and deployment["status"] == "active"
                     and set(deployment.get("names", [deployment["name"]]))
-                    & {group.get("name") for group in snapshot.get("groups", [])
-                       if group.get("units")}
+                    & airborne_names
                 }
                 self._generals[side].live_ground_groups = sum(
                     1 for group in snapshot.get("groups", [])
@@ -249,13 +255,35 @@ class FoWService:
                     and deployment["action"] == "assault"
                     and deployment["status"] == "active"
                     and deployment["target"] in self.scenario.objectives}
+                # Live air deployment counts for the air caps: total and per
+                # type. Only deployments whose groups still exist in DCS count.
+                air_deployments = [
+                    deployment for deployment in self._deployments
+                    if deployment["side"] == side.value
+                    and deployment["action"] in ("cap", "cas", "sead", "strike",
+                                                 "awacs", "tanker")
+                    and deployment["status"] == "active"
+                    and set(deployment.get("names", [deployment["name"]])) & airborne_names]
+                self._generals[side].live_air_total = len(air_deployments)
+                self._generals[side].live_air_by_type = {
+                    action: sum(1 for d in air_deployments
+                                if d["action"] == action)
+                    for action in ("cap", "cas", "sead", "strike", "awacs", "tanker")}
             presence = self.awareness.objective_presence(self.scenario, snapshot)
+            coalition_of = {Side.RED: 1, Side.BLUE: 2}
+            enemy = {Side.BLUE: Side.RED, Side.RED: Side.BLUE}
+            for side in Side:
+                self._generals[side].confirmed_enemy_troops = {
+                    objective_id for objective_id, counts in presence.items()
+                    if counts.get(coalition_of[enemy[side]], 0) > 0}
+
             flips = self.engine.evaluate_capture(self._campaign, presence)
             # Reactive triggers: an objective we own with enemy ground present
             # is threatened; one we just lost is a counter-attack target.
             # Presence counts are keyed by DCS coalition id (1=red, 2=blue).
             enemy = {Side.BLUE: Side.RED, Side.RED: Side.BLUE}
             coalition_of = {Side.RED: 1, Side.BLUE: 2}
+            enemy = {Side.BLUE: Side.RED, Side.RED: Side.BLUE}
             for side in Side:
                 general = self._generals[side]
                 enemy_coalition = coalition_of[enemy[side]]
@@ -265,19 +293,27 @@ class FoWService:
                     and counts.get(enemy_coalition, 0) > 0}
                 general.lost = {
                     flip["objective"] for flip in flips if flip["to"] == enemy[side].value}
-                # Enemy assaults in progress (active assault deployments by
-                # the opposing side) drive counter-doctrine: strike/CAP/
-                # counter-assault against the attacking force.
+                # Enemy assaults in progress drive counter-doctrine - but
+                # only what this side can SEE. An assault is visible when its
+                # target has confirmed enemy ground presence (the fight is
+                # observable). Reacting to the enemy's order the same round
+                # it was issued would be omniscience, not command.
+                observable = {objective_id for objective_id, counts in
+                              presence.items()
+                              if counts.get(coalition_of[enemy[side]], 0) > 0}
                 general.enemy_assaults = {
                     deployment["target"] for deployment in self._deployments
                     if deployment["side"] == enemy[side].value
                     and deployment["action"] == "assault"
                     and deployment["status"] == "active"
-                    and deployment["target"] in self.scenario.objectives}
+                    and deployment["target"] in self.scenario.objectives
+                    and deployment["target"] in observable}
             if flips:
                 self._apply_slot_access()
                 self._reposition_support(flips)
                 self._save_locked()
+            self._strike_confirmed_troops(snapshot, presence)
+            self._retask_close_aircraft(snapshot, presence)
             self._send_intel(flips, presence)
             self._announce_takeoffs(snapshot)
 
@@ -360,6 +396,132 @@ class FoWService:
                     pass  # DCS offline or group gone; next flip retries
                 break
 
+    def _strike_confirmed_troops(self, snapshot: dict, presence: dict) -> None:
+        """Put arriving strike/CAS flights onto real targets: when a flight
+        is near its tasked objective and enemy troops are confirmed there,
+        task an AttackGroup on the nearest live enemy group (re-attacks until
+        destroyed or weapons/fuel out). Bombing the zone center does nothing
+        when the defenders are 1 km from the point."""
+        for deployment in self._deployments:
+            if (deployment["action"] not in ("cas", "strike")
+                    or deployment["status"] != "active"
+                    or deployment.get("strike_tasked")):
+                continue
+            names = [n for n in deployment.get("names", [deployment["name"]])
+                     if n in {g.get("name") for g in snapshot.get("groups", [])
+                              if g.get("units")}]
+            if not names:
+                continue
+            flight = next((g for g in snapshot["groups"] if g["name"] == names[0]), None)
+            if flight is None or not flight.get("units"):
+                continue
+            lead = flight["units"][0]
+            objective = self.scenario.objectives[deployment["target"]]
+            if distance_m(lead.get("lat", 0), lead.get("lon", 0),
+                          objective.lat, objective.lon) > 4000:
+                continue  # not arrived yet
+            enemy_coalition = 1 if deployment["side"] == "blue" else 2
+            enemy_groups = [
+                g for g in snapshot.get("groups", [])
+                if g.get("coalition") == enemy_coalition
+                and g.get("category") == 2 and g.get("units")
+                and distance_m(g["units"][0].get("lat", 0),
+                               g["units"][0].get("lon", 0),
+                               objective.lat, objective.lon) <= 3500]
+            if not enemy_groups:
+                continue  # nothing confirmed yet; try again next tick
+            target = min(
+                enemy_groups,
+                key=lambda g: distance_m(
+                    g["units"][0].get("lat", 0), g["units"][0].get("lon", 0),
+                    objective.lat, objective.lon))
+            task = dcs_structures.build_strike_task(
+                objective.lat, objective.lon, target["name"])
+            try:
+                self.dcs.set_task(names[0], task)
+            except (OSError, RuntimeError, ValueError):
+                continue
+            deployment["strike_tasked"] = target["name"]
+            try:
+                self.dcs.message(
+                    f"[FoW] {deployment['name']} engaging troops at "
+                    f"{objective.label}", 2, 15)
+            except (OSError, RuntimeError, ValueError):
+                pass
+
+    def _retask_close_aircraft(self, snapshot: dict, presence: dict) -> None:
+        """Dynamic battlefield response: when an objective has confirmed enemy
+        troops, redirect nearby CAS/strike flights (with ground-attack
+        weapons) to orbit it. Urgent targets beat the original tasking - a
+        flight already in the air is the fastest fire support available."""
+        from scripts.dcs_structures import build_route_update
+        hot = {objective_id for objective_id, counts in presence.items()
+               if counts.get(1, 0) > 0 or counts.get(2, 0) > 0}
+        if not hot:
+            return
+        for deployment in self._deployments:
+            if (deployment["action"] not in ("cas", "strike")
+                    or deployment["status"] != "active"
+                    or deployment.get("retasked_for") == deployment["target"]):
+                continue
+            names = [n for n in deployment.get("names", [deployment["name"]])
+                     if n in {g.get("name") for g in snapshot.get("groups", [])
+                              if g.get("units")}]
+            if not names:
+                continue
+            # Find a hot objective closer than the current target.
+            flight = next((g for g in snapshot["groups"] if g["name"] == names[0]), None)
+            if flight is None or not flight.get("units"):
+                continue
+            lead = flight["units"][0]
+            current = self.scenario.objectives[deployment["target"]]
+            current_distance = distance_m(lead.get("lat", 0), lead.get("lon", 0),
+                                          current.lat, current.lon)
+            best = None
+            for objective_id in hot:
+                if objective_id == deployment["target"]:
+                    continue
+                objective = self.scenario.objectives[objective_id]
+                d = distance_m(lead.get("lat", 0), lead.get("lon", 0),
+                               objective.lat, objective.lon)
+                if d < current_distance * 0.7 and (best is None or d < best[1]):
+                    best = (objective_id, d)
+            if best is None:
+                continue
+            objective_id, _ = best
+            objective = self.scenario.objectives[objective_id]
+            # Real strike tasking: attack the confirmed enemy group nearest
+            # the hot objective (AttackGroup re-attacks until the target is
+            # destroyed or weapons/fuel run out); Bombing on the coordinates
+            # as fallback when no live group is mapped.
+            enemy_groups = [
+                g for g in snapshot.get("groups", [])
+                if g.get("coalition") == (1 if deployment["side"] == "blue" else 2)
+                and g.get("category") == 2 and g.get("units")
+                and distance_m(g["units"][0].get("lat", 0),
+                               g["units"][0].get("lon", 0),
+                               objective.lat, objective.lon) <= 3500]
+            target_group = None
+            if enemy_groups:
+                target_group = min(
+                    enemy_groups,
+                    key=lambda g: distance_m(
+                        g["units"][0].get("lat", 0), g["units"][0].get("lon", 0),
+                        objective.lat, objective.lon))["name"]
+            task = dcs_structures.build_strike_task(
+                objective.lat, objective.lon, target_group)
+            try:
+                self.dcs.set_task(names[0], task)
+            except (OSError, RuntimeError, ValueError):
+                continue
+            deployment["retasked_for"] = objective_id
+            try:
+                self.dcs.message(
+                    f"[FoW] {deployment['name']} redirected - troops at "
+                    f"{objective.label}", 2, 15)
+            except (OSError, RuntimeError, ValueError):
+                pass
+
     def _send_intel(self, flips: list[dict], presence: dict) -> None:
         """Balanced intel to Blue players: what Blue's own forces do, plus
         enemy activity only where Blue could plausibly see it (its own
@@ -424,15 +586,41 @@ class FoWService:
         objective = self.scenario.objectives[target]
         station = self.scenario.air_stations.get(side, {}).get(action)
         if station:
-            return [
+            # Strike/SEAD/CAS orbit the TARGET, not a fixed map racetrack -
+            # the same rule the executor uses. The displayed route matches
+            # where the flight actually goes.
+            if action in ("strike", "sead", "cas"):
+                positions = [(objective.lat, objective.lon)]
+            else:
+                positions = station.waypoints
+            # Final leg: RTB to the launch base (nearest friendly airbase),
+            # labeled with the base name - the flight lands there, not at
+            # the target.
+            launch = self.dcs.public_snapshot()
+            base_name, base_pos = None, None
+            if launch:
+                coalition = 2 if side == Side.BLUE else 1
+                candidates = [ab for ab in launch.get("airbases", [])
+                              if ab.get("coalition") == coalition]
+                if candidates:
+                    base = min(candidates, key=lambda ab: distance_m(
+                        ab.get("lat", 0), ab.get("lon", 0),
+                        objective.lat, objective.lon))
+                    base_name, base_pos = base.get("name"), (base.get("lat"), base.get("lon"))
+            # Flight-plan naming like a real kneeboard: WP 1, WP 2, TGT 3,
+            # RTB 4 (the landing base).
+            waypoints = [
                 {"lat": position[0], "lon": position[1],
-                 "label": f"{action.upper()} station {index + 1}"}
-                for index, position in enumerate(station.waypoints)
-            ] + [{
-                "lat": objective.lat,
-                "lon": objective.lon,
-                "label": f"RTB {objective.label}",
-            }]
+                 "label": f"WP {index + 1}"}
+                for index, position in enumerate(positions)
+            ]
+            if base_pos:
+                waypoints.append({"lat": base_pos[0], "lon": base_pos[1],
+                                  "label": f"RTB {base_name}"})
+            else:
+                waypoints.append({"lat": objective.lat, "lon": objective.lon,
+                                  "label": f"RTB {objective.label}"})
+            return waypoints
         return [{
             "lat": objective.lat,
             "lon": objective.lon,
