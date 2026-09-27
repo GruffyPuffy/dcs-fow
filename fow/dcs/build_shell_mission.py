@@ -18,6 +18,8 @@ SLOT_GUARD = ROOT / "fow" / "dcs" / "slot_guard.lua"
 def lua_literal(value):
     if isinstance(value, bool):
         return "true" if value else "false"
+    if isinstance(value, str):
+        return json.dumps(value)
     if isinstance(value, dict):
         return "{" + ",".join(
             "[" + json.dumps(key) + "]=" + lua_literal(item)
@@ -183,9 +185,15 @@ def build(scenario_path: Path, output: Path) -> None:
                 if index:
                     name = f"{name} {index + 1}"
                 slot_access[name] = False
+    objectives_lua = {
+        objective["label"]: objective_id
+        for objective_id, objective in scenario["objectives"].items()
+        if objective.get("kind") == "zone"
+    }
     mission.init_script = (
         BRIDGE.read_text()
         + "\nFoWSlotAccess = " + lua_literal(slot_access) + "\n"
+        + "FoWObjectives = " + lua_literal(objectives_lua) + "\n"
         + SLOT_GUARD.read_text()
     )
     output.parent.mkdir(parents=True, exist_ok=True)

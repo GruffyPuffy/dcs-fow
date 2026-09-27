@@ -1,0 +1,18 @@
+[Unit]
+Description=DCS World dedicated server (FoW campaign, docker compose)
+After=network-online.target
+Wants=network-online.target
+Requires=docker.service
+RequiresMountsFor=/data
+
+[Service]
+Type=oneshot
+User=stefan
+WorkingDirectory=/home/stefan/projects/dcs-fow
+RemainAfterExit=yes
+ExecStart=/home/stefan/projects/dcs-fow/scripts/dcs.sh start
+ExecStop=/home/stefan/projects/dcs-fow/scripts/dcs.sh stop
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

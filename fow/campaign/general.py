@@ -339,10 +339,16 @@ class AlgorithmicGeneral:
                         key=lambda plan: -self.engine.income_value(
                             state, self.side, plan.target))
                     return air_missions[0]
-                # Prefer SEAD against hard (SAM-heavy) objectives.
+                # SEAD goes where air defenses actually are: the SAM site
+                # objective, or hard (SAM-heavy) objectives. Never SEAD a
+                # plain zone with no known SAMs.
+                def has_sams(objective_id: str) -> bool:
+                    objective = self.engine.scenario.objectives[objective_id]
+                    return (objective.difficulty == "hard"
+                            or "sam" in objective_id.lower()
+                            or "sam" in objective.label.lower())
                 sead = [plan for plan in air_missions
-                        if plan.action == "sead"
-                        and self.engine.scenario.objectives[plan.target].difficulty == "hard"]
+                        if plan.action == "sead" and has_sams(plan.target)]
                 if sead and self._random.random() < 0.5:
                     return self._random.choice(sead)
                 deep = [plan for plan in air_missions

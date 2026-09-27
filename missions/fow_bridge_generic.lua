@@ -514,4 +514,19 @@ timer.scheduleFunction(function(_, now)
     return now + 5
 end, nil, timer.getTime() + 1)
 
+-- Register the FoW radio menu at mission start. Menus added while the
+-- mission loads propagate to joining clients; menus added later may only
+-- exist in the server instance. FoWObjectives is embedded by the shell
+-- builder: {["<label>"]="<objective_id>", ...}.
+if FoWObjectives then
+    for label, objective_id in pairs(FoWObjectives) do
+        pcall(function()
+            missionCommands.addCommandForCoalition(
+                coalition.side.BLUE, 'Request JTAC - ' .. label, {'FoW'},
+                function()
+                    enqueue_menu_event('jtac:' .. objective_id, label)
+                end, nil)
+        end)
+    end
+end
 trigger.action.outText('FOW_BRIDGE_READY', 1)

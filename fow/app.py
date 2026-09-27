@@ -46,6 +46,7 @@ class FoWService:
         self._next_income_at: float | None = None
         self._next_decision_at: float | None = None
         self._last_dcs_mission_id: str | None = None
+        self._menu_registered = False
         # Player requests from the F10 radio menu, awaiting the general's
         # approval. Each entry: {id, side, action, target, requested_at}.
         self._player_requests: list[dict[str, Any]] = []
@@ -124,8 +125,39 @@ class FoWService:
         self._execute_jobs(jobs)
         self._apply_slot_access()
         self._register_radio_menu()
+        self._draw_objective_map()
         with self._lock:
             return self._campaign.as_dict()
+
+    def _draw_objective_map(self) -> None:
+        """Draw the objective graph on the F10 map for Blue: a mark per
+        objective (name + owner) and a midpoint mark per connection so the
+        front lines and attack paths are visible in the map view. DCS marks
+        are points, so links are labeled midpoints rather than lines."""
+        try:
+            snapshot = self.dcs.public_snapshot()
+            owners = (self._campaign.objectives if self._campaign else {})
+            for objective in self.scenario.objectives.values():
+                state = owners.get(objective.id)
+                owner = state.owner.value if state and state.owner else "neutral"
+                self.dcs.mark(
+                    objective.lat, objective.lon,
+                    f"[FoW] {objective.label} ({owner})", 2)
+            seen = set()
+            for objective in self.scenario.objectives.values():
+                for neighbor in objective.connections:
+                    link = tuple(sorted((objective.id, neighbor)))
+                    if link in seen:
+                        continue
+                    seen.add(link)
+                    other = self.scenario.objectives[neighbor]
+                    mid_lat = (objective.lat + other.lat) / 2
+                    mid_lon = (objective.lon + other.lon) / 2
+                    self.dcs.mark(
+                        mid_lat, mid_lon,
+                        f"[FoW] {objective.label} - {other.label}", 2)
+        except (OSError, RuntimeError, ValueError):
+            pass  # DCS offline; retried on next mission reload
 
     def _register_radio_menu(self) -> None:
         """Add the FoW F10 menu for Blue: request JTAC support per objective."""
@@ -136,8 +168,13 @@ class FoWService:
                 self.dcs.add_radio_command(
                     2, f"Request JTAC - {objective.label}",
                     ["FoW"], f"jtac:{objective.id}")
-        except (OSError, RuntimeError, ValueError):
-            pass  # DCS offline; retried on next campaign start
+        except (OSError, RuntimeError, ValueError) as error:
+            # DCS offline or bridge not ready: retry on the next mission poll
+            # instead of waiting for a campaign restart.
+            self._menu_registered = False
+            print(f"[FoW] radio menu registration deferred: {error}")
+            return
+        self._menu_registered = True
 
     def tick(self, now: float | None = None) -> None:
         now = self._clock() if now is None else now
@@ -403,7 +440,7 @@ class FoWService:
         destroyed or weapons/fuel out). Bombing the zone center does nothing
         when the defenders are 1 km from the point."""
         for deployment in self._deployments:
-            if (deployment["action"] not in ("cas", "strike")
+            if (deployment["action"] not in ("cas", "strike", "sead")
                     or deployment["status"] != "active"
                     or deployment.get("strike_tasked")):
                 continue
@@ -430,6 +467,14 @@ class FoWService:
                                objective.lat, objective.lon) <= 3500]
             if not enemy_groups:
                 continue  # nothing confirmed yet; try again next tick
+            # SEAD prefers SAM units (Buk/SAM types) among the defenders.
+            if deployment["action"] == "sead":
+                sam_groups = [g for g in enemy_groups
+                              if any("sam" in str(u.get("type", "")).lower()
+                                     or "buk" in str(u.get("type", "")).lower()
+                                     for u in g.get("units", []))]
+                if sam_groups:
+                    enemy_groups = sam_groups
             target = min(
                 enemy_groups,
                 key=lambda g: distance_m(
@@ -455,12 +500,18 @@ class FoWService:
         weapons) to orbit it. Urgent targets beat the original tasking - a
         flight already in the air is the fastest fire support available."""
         from scripts.dcs_structures import build_route_update
+        # Only objectives with ENEMY troops are strike-worthy; friendly
+        # presence alone (our own CAP overhead) is not a target. Both
+        # coalitions' enemies: coalition 1's enemy is 2 and vice versa.
         hot = {objective_id for objective_id, counts in presence.items()
                if counts.get(1, 0) > 0 or counts.get(2, 0) > 0}
         if not hot:
             return
         for deployment in self._deployments:
-            if (deployment["action"] not in ("cas", "strike")
+            # Only CAS is on-call fire support and may be redirected. Strike
+            # is a one-shot deep mission - it must finish its tasked target,
+            # otherwise it never strikes anything.
+            if (deployment["action"] != "cas"
                     or deployment["status"] != "active"
                     or deployment.get("retasked_for") == deployment["target"]):
                 continue
@@ -489,6 +540,10 @@ class FoWService:
             if best is None:
                 continue
             objective_id, _ = best
+            # Enemy troops must actually be confirmed at the redirect target.
+            enemy_coalition = 1 if deployment["side"] == "blue" else 2
+            if presence.get(objective_id, {}).get(enemy_coalition, 0) <= 0:
+                continue
             objective = self.scenario.objectives[objective_id]
             # Real strike tasking: attack the confirmed enemy group nearest
             # the hot objective (AttackGroup re-attacks until the target is
@@ -720,6 +775,14 @@ class FoWService:
             if changed:
                 self._save_locked()
         self._execute_jobs(jobs)
+        # Mission (re)loaded, or service (re)started against a running
+        # mission: the F10 menu and map marks live in the mission environment,
+        # so they must be (re-)created. Register on the first snapshot too -
+        # a fresh service against an already-running mission has no menu yet.
+        if mission_changed or self._menu_registered is not True:
+            self._register_radio_menu()
+            self._draw_objective_map()
+            self._menu_registered = True
 
     def _restore(self) -> None:
         if self._checkpoint is None:
