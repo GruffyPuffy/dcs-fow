@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Start the ATC trainer listener bot.
-# Usage: ./start_bot.sh [extra listen.py args...]
+# Start the ATC trainer bot: listen, STT, rules-based replies, TTS over SRS.
+# Usage: ./start_bot.sh [extra atc_bot.py args...]
 # Examples:
 #   ./start_bot.sh                          # defaults: 251.000 AM, EAM "atc"
 #   ./start_bot.sh --freq 124.0             # different frequency
+#   ./start_bot.sh --speech-rate 0.6        # faster TTS voice
 #   ./start_bot.sh --gain 3                 # boost quiet mic audio
-#   ./start_bot.sh --keep 0                 # keep all wavs (default: last 10)
 set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -26,4 +26,4 @@ rm -f /tmp/atc_log.txt
 rm -rf /tmp/atc_audio
 
 echo "Starting ATC bot (log: /tmp/atc_log.txt) — Ctrl+C to stop."
-exec "$uv_bin" run listen.py --host 127.0.0.1 --freq 251.0 --eam atc --log /tmp/atc_log.txt "$@"
+exec "$uv_bin" run atc_bot.py --host 127.0.0.1 --freq 251.0 --eam atc --log /tmp/atc_log.txt "$@"

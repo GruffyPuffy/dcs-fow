@@ -14,6 +14,7 @@ import time
 import uuid
 
 import av
+import numpy as np
 
 GUID_LENGTH = 22
 PACKET_HEADER_LENGTH = 6  # packet length + audio length + freq part length
@@ -59,6 +60,10 @@ class SrsClient:
         # libopus decodes to stereo by default; SRS voice is mono. Without this
         # resampler the interleaved stereo bytes saved as mono play at half speed.
         self._resampler = av.AudioResampler(format="s16", layout="mono", rate=48000)
+        self._tx_queue: list[bytes] = []
+        self._tx_lock = threading.Lock()
+        self._tx_thread = None
+        self._udp_ready = threading.Event()
         self._running = False
         self._packet_id = 0
 
@@ -174,6 +179,7 @@ class SrsClient:
                 if not self._voice_ready_printed:
                     self._voice_ready_printed = True
                     print("[srs] UDP voice link ready")
+                self._udp_ready.set()
                 continue
             if len(message) > PACKET_HEADER_LENGTH + FIXED_PACKET_LENGTH:
                 self._handle_voice(message)
@@ -227,6 +233,68 @@ class SrsClient:
                     if self.on_transmission_end and len(pcm) > 9600:
                         self.on_transmission_end(key, name, pcm, duration)
 
+    # ---------- transmit ----------
+
+    def transmit(self, pcm_48k: bytes, freq_hz: float) -> None:
+        """Queue 48 kHz s16 mono PCM for transmission on freq_hz (AM).
+        Encodes to 40 ms opus frames (3840 bytes PCM each, like the SRS
+        ExternalAudioClient); the TX thread paces them at 40 ms.
+        A fresh encoder per transmission: flushing (encode(None)) closes an
+        encoder for good, so a reused one would fail on the second reply."""
+        encoder = av.codec.CodecContext.create("libopus", "w")
+        encoder.format = "s16"
+        encoder.layout = "mono"
+        encoder.sample_rate = 48000
+        encoder.bit_rate = 32000
+        try:
+            encoder.options = {"frame_duration": "40"}
+            encoder.open()
+        except Exception:
+            pass  # older PyAV: encoder still accepts our 40 ms frames
+        frame_bytes = 1920 * 2  # 1920 samples * 2 bytes = 40 ms @ 48 kHz s16 mono
+        pad = (-len(pcm_48k)) % frame_bytes
+        if pad:
+            pcm_48k += b"\x00" * pad
+        packets = []
+        for i in range(0, len(pcm_48k), frame_bytes):
+            chunk = pcm_48k[i:i + frame_bytes]
+            frame = av.AudioFrame.from_ndarray(
+                np.frombuffer(chunk, dtype=np.int16).reshape(1, -1),
+                format="s16", layout="mono")
+            frame.sample_rate = 48000
+            packets += [bytes(p) for p in encoder.encode(frame)]
+        packets += [bytes(p) for p in encoder.encode(None)]
+        with self._tx_lock:
+            self._tx_queue.append((freq_hz, packets))
+
+    def _tx_loop(self) -> None:
+        """Send queued transmissions paced at 40 ms per 40 ms opus frame."""
+        packet_id = 1
+        while self._running:
+            with self._tx_lock:
+                item = self._tx_queue.pop(0) if self._tx_queue else None
+            if item is None:
+                time.sleep(0.05)
+                continue
+            freq_hz, packets = item
+            freq_part = struct.pack("<dBB", float(freq_hz), 0, 0)  # AM, no encryption
+            started = time.monotonic()
+            for n, opus in enumerate(packets):
+                if not self._running:
+                    return
+                # absolute pacing: packet n goes out at start + n*40 ms
+                delay = started + n * 0.040 - time.monotonic()
+                if delay > 0:
+                    time.sleep(delay)
+                body = struct.pack("<HHH", 0, len(opus), len(freq_part)) + opus + freq_part
+                body += struct.pack("<IQ", self.unit_id, packet_id) + b"\x00"
+                body += self.guid.encode() + self.guid.encode()
+                try:
+                    self._udp.sendto(body, (self.host, self.port))
+                except OSError:
+                    return
+                packet_id += 1
+
     # ---------- lifecycle ----------
 
     def start(self) -> None:
@@ -237,6 +305,8 @@ class SrsClient:
         print(f"[srs] TCP connected to {self.host}:{self.port} as {self.name}")
         threading.Thread(target=self._tcp_loop, daemon=True).start()
         threading.Thread(target=self._udp_loop, daemon=True).start()
+        self._tx_thread = threading.Thread(target=self._tx_loop, daemon=True)
+        self._tx_thread.start()
         self._watchdog = threading.Thread(target=self._watchdog_loop, daemon=True)
         self._watchdog.start()
 
