@@ -33,6 +33,11 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
+# ATC trainer: captured radio audio and uv lock state
+atc/samples/
+atc/audio/
+*.wav
+
 # Editor and OS files
 .idea/
 .vscode/

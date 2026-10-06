@@ -21,8 +21,9 @@ Usage: ./scripts/dcs.sh <command>
   logs      Follow recent container logs (Ctrl+C to exit)
   missions  Copy the repo FoW mission into DCS Saved Games
   shell-mission  Copy the new campaign shell mission into DCS Saved Games
-  bridge    Install the FoW Saved Games socket hook
-  config    Prepare configuration and validate Compose without starting
+  bridge    Install the FoW Saved Games socket hook  srs-autoconnect  Install the SRS auto-connect announcer hook (LAN IP auto-detected)  config    Prepare configuration and validate Compose without starting
+  srs-logs  Follow recent SRS server logs (Ctrl+C to exit)
+  srs-status Show connected SRS clients (HTTP status API)
   help      Show this help
 EOF
 }
@@ -148,18 +149,36 @@ deploy_bridge() {
   deploy_hook "$repo_dir/bridge/fow_hook.lua"
 }
 
+deploy_srs_autoconnect() {
+  require_data_disk
+  # The SRS client's auto-connect parses "SRS Running @ <ip>:<port>" from chat,
+  # so the hook must announce a routable LAN address, not localhost.
+  local lan_ip
+  lan_ip="$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K[0-9.]+' | head -n1)"
+  if [[ -z "$lan_ip" ]]; then
+    echo "Could not detect the LAN IP for the SRS announcer." >&2
+    exit 1
+  fi
+  local rendered
+  rendered="$(mktemp)"
+  sed "s/__SRS_HOST__/$lan_ip/" "$repo_dir/bridge/srs_autoconnect.lua" > "$rendered"
+  deploy_hook "$rendered" "srs_autoconnect.lua"
+  rm -f "$rendered"
+}
+
 deploy_hook() {
   require_data_disk
   local hooks="$saved_games/Scripts/Hooks"
   local source="$1"
-  local destination="$hooks/fow_hook.lua"
+  local filename="${2:-fow_hook.lua}"
+  local destination="$hooks/$filename"
   mkdir -p "$hooks"
   if [[ ! -w "$hooks" ]]; then
     echo "DCS Saved Games Hooks directory is not writable." >&2
     exit 1
   fi
   if [[ -f "$destination" ]] && cmp -s "$source" "$destination"; then
-    echo "Already current: fow_hook.lua"
+    echo "Already current: $filename"
   else
     install -m 644 "$source" "$destination"
     echo "Deployed: $destination"
@@ -196,6 +215,9 @@ case "$command" in
   bridge)
     deploy_bridge
     ;;
+  srs-autoconnect)
+    deploy_srs_autoconnect
+    ;;
   stop)
     require_docker
     compose stop
@@ -207,6 +229,14 @@ case "$command" in
   logs)
     require_docker
     compose logs -f --tail=100
+    ;;
+  srs-logs)
+    require_docker
+    compose logs -f --tail=100 srs-server
+    ;;
+  srs-status)
+    require_docker
+    curl -fsS http://127.0.0.1:8080/api/clients | python3 -m json.tool
     ;;
   *)
     usage >&2
